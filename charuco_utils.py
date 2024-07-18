@@ -3,6 +3,8 @@ import cv2
 import numpy as np
 import os
 import glob
+
+from tqdm import tqdm
 from utils import sample_dataset
 
 
@@ -24,7 +26,7 @@ def analyse_calibration_data(board_data,
     intrinsics = []
     distortion = []
     errors = []
-    for i in range(repeats):
+    for i in tqdm(range(repeats)):
         # generate n+R random numbers that are in the range of the above loaded images
         #random_indices = random.sample(range(len(board_data)), R+n)
         #img_indeces_for_calibration = random_indices[R:]
@@ -59,7 +61,7 @@ def analyse_calibration_data(board_data,
         else: 
             image_paths = None
         err = calculate_reprojection_error(mtx, dist, objPoints_reprojection, imgPoints_reprojection, image_pths=image_paths, waitTime=waitTime)
-        print(err)
+        #print(err)
         intrinsics.append(mtx)
         distortion.append(dist)
         errors.append(err)

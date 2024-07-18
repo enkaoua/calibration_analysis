@@ -3,6 +3,7 @@ import os
 import random
 import numpy as np
 import pandas as pd
+from tqdm import tqdm
 from charuco_utils import analyse_calibration_data, detect_corners_charuco_cube_images, generate_charuco_board
 import matplotlib.pyplot as plt
 
@@ -71,12 +72,15 @@ def perform_analysis(camera, size_chess, data_df, reprojection_data_df, repeats=
                              waitTime=waitTime # time to display each image for (in seconds) when showing reprojection
                              )
         # ignore infinite errors
-        errors = [e for e in errors if not np.isinf(e)]
+        errors_filtered = [e for e in errors if not np.isinf(e)]
         # ignore anything larger than 20
-        errors = [e for e in errors if e < 20]
+        errors_filtered = [e for e in errors if e < 20]
+        # print how many were infinite or larger than 20
+        print(f'Number of larger errors: {len(errors)-len(errors_filtered)}')
+        
         error_lst.append(errors)
-        average_error_lst.append(np.mean(errors))
-        std_error_lst.append(np.std(errors))
+        average_error_lst.append(np.mean(errors_filtered))
+        std_error_lst.append(np.std(errors_filtered))
         all_intrinsics.append(intrinsics)
         all_distortion.append(distortion)
 
