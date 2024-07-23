@@ -21,14 +21,19 @@ def load_info(board_size, info_pth='results/corner_data'):
 def get_average_std(data, threshold=100):
     avg_lst = []
     std_lst = []
+    Q1_lst = []
+    Q3_lst = []
     for errors in data:
         errors_np = np.array(errors)
-        avg_lst.append(np.mean(errors_np[errors_np<threshold]))
-        std_lst.append(np.std(errors_np[errors_np<threshold]))
+        e = errors_np[errors_np<threshold]
+        avg_lst.append( np.percentile(e, 50) ) # np.mean(e)
+        std_lst.append(np.std(e))
+        Q1_lst.append( np.percentile(e, 25) )
+        Q3_lst.append( np.percentile(e, 75) )
     """     data_np = np.array(data)
     avg_lst = np.mean(data_np, axis=1)
     std_lst = np.std(data_np, axis=1) """
-    return np.array(avg_lst), np.array(std_lst)
+    return np.array(avg_lst), np.array(std_lst), Q1_lst, Q3_lst
     
 
 def plot_with_shaded_error(num_images_lst, data_dict, label, fmt, alpha=0.3, start_val=0, threshold=50):
@@ -37,11 +42,11 @@ def plot_with_shaded_error(num_images_lst, data_dict, label, fmt, alpha=0.3, sta
     errors = data_dict['errors'][start_val:]
     #avg_error = np.mean(errors, axis=1)
     #std_error = np.std(errors, axis=1)
-    avg_error,std_error= get_average_std(errors, threshold=threshold)
+    avg_error,std_error, Q1, Q3= get_average_std(errors, threshold=threshold)
     plt.plot(num_images_lst, avg_error, label=label, marker=fmt)
-    plt.fill_between(num_images_lst, avg_error - std_error, avg_error + std_error, alpha=alpha)
-    plt.plot(num_images_lst, avg_error - std_error, color=plt.gca().lines[-1].get_color(), linestyle='--', alpha=1)
-    plt.plot(num_images_lst, avg_error + std_error, color=plt.gca().lines[-1].get_color(), linestyle='--', alpha=1)
+    plt.fill_between(num_images_lst, Q1, Q3, alpha=alpha)
+    plt.plot(num_images_lst, Q1, color=plt.gca().lines[-1].get_color(), linestyle='--', alpha=1)
+    plt.plot(num_images_lst, Q3, color=plt.gca().lines[-1].get_color(), linestyle='--', alpha=1)
 
 def filter_errors(errors, threshold=100):
     """ 
@@ -80,7 +85,7 @@ def main(analysis_pth = f'results/calibration_analysis/'):
     # load all results
     
     endo = True
-    rs = False
+    rs = True
 
 
     #results_df = results_df.sort_values(by=['size_chess', 'camera'])
@@ -99,7 +104,7 @@ def main(analysis_pth = f'results/calibration_analysis/'):
 
 
     if endo == True:
-        threshold = 100
+        threshold = 2
         """ # plot results
         plt.figure()
         #plt.plot(endo_data_30['average_error'][start_val:], label='30x30 endo')
@@ -119,10 +124,10 @@ def main(analysis_pth = f'results/calibration_analysis/'):
         shift = [0.3, 0.1]
         # Line plots with outliers for better visualization
         plt.figure(figsize=(12, 8))
-        plot_boxplots(num_images_lst, endo_data_30, shift=-shift[0], color='blue', shift_y=0.01)
-        plot_boxplots(num_images_lst, endo_data_25, shift=-shift[1], color='green',shift_y=0.03)
-        plot_boxplots(num_images_lst, endo_data_20, shift=shift[1], color='red', shift_y=0.06)
-        plot_boxplots(num_images_lst, endo_data_15, shift=shift[0], color='purple', shift_y=0.09)
+        plot_boxplots(num_images_lst, endo_data_30, shift=-shift[0], color='blue', threshold=threshold, shift_y=0.01)
+        plot_boxplots(num_images_lst, endo_data_25, shift=-shift[1], color='green',threshold=threshold, shift_y=0.03)
+        plot_boxplots(num_images_lst, endo_data_20, shift=shift[1], color='red', threshold=threshold, shift_y=0.06)
+        plot_boxplots(num_images_lst, endo_data_15, shift=shift[0], color='purple', threshold=threshold, shift_y=0.09)
         # add legends to the colors and add the legend to outside the plot on the bottom
         plt.legend(handles=[
             plt.Line2D([0], [0], color='blue', lw=4),
@@ -136,7 +141,7 @@ def main(analysis_pth = f'results/calibration_analysis/'):
         plt.title('Reprojection Error Distribution vs Number of Images (Endo)')
         plt.xlabel('Number of Images')
         plt.ylabel('Reprojection Error')
-        #plt.ylim(None, 1.65)
+        plt.ylim(None, threshold)
         plt.grid(True)
         plt.show()
 
@@ -170,7 +175,7 @@ def main(analysis_pth = f'results/calibration_analysis/'):
         plt.show() """
         
         shift = [0.3, 0.1]
-        threshold = 10
+        #threshold = 10
         th_y = -4
 
         plt.figure(figsize=(12, 8))
@@ -190,9 +195,9 @@ def main(analysis_pth = f'results/calibration_analysis/'):
         # Line plots with outliers for better visualization
         plt.figure(figsize=(12, 8))
         plot_boxplots(num_images_lst, rs_data_30, shift=-shift[0], color='blue', shift_y=th_y-0, threshold=threshold)
-        plot_boxplots(num_images_lst, rs_data_25, shift=-shift[1], color='green',shift_y=th_y-3, threshold=threshold)
-        plot_boxplots(num_images_lst, rs_data_20, shift=shift[1], color='red', shift_y=th_y-6, threshold=threshold)
-        plot_boxplots(num_images_lst, rs_data_15, shift=shift[0], color='purple', shift_y=th_y-9, threshold=threshold)
+        plot_boxplots(num_images_lst, rs_data_25, shift=-shift[1], color='green',shift_y=th_y-0.5, threshold=threshold)
+        plot_boxplots(num_images_lst, rs_data_20, shift=shift[1], color='red', shift_y=th_y-1, threshold=threshold)
+        plot_boxplots(num_images_lst, rs_data_15, shift=shift[0], color='purple', shift_y=th_y-1.5, threshold=threshold)
         # add legends to the colors and add the legend to outside the plot on the bottom
         plt.legend(handles=[
             plt.Line2D([0], [0], color='blue', lw=4),
@@ -206,7 +211,7 @@ def main(analysis_pth = f'results/calibration_analysis/'):
         plt.title('Reprojection Error Distribution vs Number of Images (Realsense)')
         plt.xlabel('Number of Images')
         plt.ylabel('Reprojection Error')
-        #plt.ylim(None, threshold)
+        plt.ylim(None, threshold)
         plt.grid(True)
         plt.show()
 
