@@ -6,59 +6,12 @@ import glob
 
 from tqdm import tqdm
 from utils import extrinsic_vecs_to_matrix, sample_dataset
+import pandas as pd
 
 
 
 
-
-
-""" def detect_charuco_board_pose(image, intrinsics, distortion, board, return_corners=False):
-    parameters=cv2.aruco.DetectorParameters()
-    #dictionary =cv2.aruco.getPredefinedDictionary(dict_id)
-    dictionary = board.getDictionary()
-
-    # load intrinsics
-    #intrinsics = np.loadtxt(intrinsics)
-    #distortion = np.loadtxt(distortion)
-    # undistort image
-    undistorted_image = cv2.undistort(image, intrinsics, distortion, None, intrinsics)
-    # convert img to gray
-    gray = cv2.cvtColor(undistorted_image, cv2.COLOR_BGR2GRAY)
-
-    # create charuco board detector object
-    
-    # detect all charuco marker corners
-    corners, ids, rejectedImgPoints = cv2.aruco.detectMarkers(undistorted_image, dictionary, parameters=parameters)
-    if corners:
-        #for i, board in enumerate(boards):
-        # get markers corresponding to said board
-        cv2.aruco.refineDetectedMarkers(gray, board, corners, ids, rejectedImgPoints)
-        # interpolate charuco corners
-        ret, charuco_corners, charuco_ids = cv2.aruco.interpolateCornersCharuco(corners, ids, gray, board)
-        #cv2.aruco.Board.matchImagePoints(	charuco_corners,  charuco_ids, objPoints, imgPoints	)
-        # save and show corners and ids
-        if ret and len(charuco_corners)>4:
-            #cv2.aruco.drawDetectedCornersCharuco(image, all_charuco_corners_np, all_charuco_ids_np)
-            # Estimate the pose of the ChArUco board
-            retval, rvec, tvec = cv2.aruco.estimatePoseCharucoBoard(charuco_corners, charuco_ids, board, intrinsics, distortion, None, None)
-
-            if retval:
-                #annotated_image = cv2.aruco.drawAxis(gray, intrinsics, distortion, rvec, tvec, 0.1)  # 0.1 is the length of the axis
-                # draw markers
-                annotated_image = cv2.aruco.drawDetectedCornersCharuco(undistorted_image, charuco_corners, charuco_ids)
-                # Draw the ChArUco board axis
-                annotated_image = cv2.drawFrameAxes(annotated_image, intrinsics, None, rvec, tvec, length=37)
-                if return_corners:
-                    return True, annotated_image, rvec, tvec, corners, ids
-
-                return True,annotated_image, rvec, tvec
-    if return_corners:
-        return False, [], False, False, [], False
-    return False, None, None, image """
-
-
-
-def detect_charuco_board_pose_images( board, image_pths,intrinsics_pth, distortion_pth,return_corners=True, min_num_corners=6, waiting_time=0):
+def detect_charuco_board_pose_images( board, image_pths,intrinsics, distortion,return_corners=True, min_num_corners=6, waiting_time=0):
     """
     function to detect corners in a list of images given a board
     Parameters
@@ -77,8 +30,8 @@ def detect_charuco_board_pose_images( board, image_pths,intrinsics_pth, distorti
     if len(image_pths) == 0:
         raise(f'no images found')
     # load intrinsics
-    intrinsics = np.loadtxt(intrinsics_pth)
-    distortion = np.loadtxt(distortion_pth)
+    #intrinsics = np.loadtxt(intrinsics_pth)
+    #distortion = np.loadtxt(distortion_pth)
     imgPoints = []
     objPoints = []
     T_all = []
@@ -99,17 +52,17 @@ def detect_charuco_board_pose_images( board, image_pths,intrinsics_pth, distorti
     for image_pth in image_pths:
 
         image = cv2.imread(image_pth)
-
+        # if image is None (currupt): remove it from the list of images
+        if image is None:
+            updated_image_pths.remove(image_pth)
+            continue
         # undistort image
         undistorted_image = cv2.undistort(image, intrinsics, distortion, None, intrinsics)
         # convert img to gray
         gray = cv2.cvtColor(undistorted_image, cv2.COLOR_BGR2GRAY)
 
         
-        # if image is None (currupt): remove it from the list of images
-        if image is None:
-            updated_image_pths.remove(image_pth)
-            continue
+        
         # detect aruco tags
         corners, ids, rejectedImgPoints = cv2.aruco.detectMarkers(undistorted_image, dictionary, parameters=parameters)
         if corners:
@@ -139,7 +92,7 @@ def detect_charuco_board_pose_images( board, image_pths,intrinsics_pth, distorti
             # Draw the ChArUco board axis
             annotated_image = cv2.drawFrameAxes(annotated_image, intrinsics, None, rvec, tvec, length=37)
             # display annotated img
-            cv2.imshow('charuco board', image)
+            cv2.imshow('charuco board', annotated_image)
             cv2.waitKey(waiting_time)
             
             # add the detected charuco corners to the list of all charuco corners
@@ -366,8 +319,13 @@ def calculate_reprojection_error(mtx, dist, objPoints, imgPoints, image_pths=Non
         mean_errors.append(error)
 
 
-    
-    reprojection_error_mean_final = np.array(mean_errors).mean()
+    mean = pd.DataFrame(mean_errors).mean()[0]
+    median = pd.DataFrame(mean_errors).median()[0]
+    if mean-median>0.5:
+        reprojection_error_mean_final = median
+    else:
+        reprojection_error_mean_final = mean
+    #reprojection_error_mean_final = np.array(mean_errors).mean()
     #print(f'Reprojection error: {np.array(mean_errors).mean()}')
     #print(f'Reprojection error np: {np.array(mean_errors_np).mean()}')
     #path_name = os.path.basename(reprojection_images_pth).split('_')[-1]
