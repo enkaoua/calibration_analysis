@@ -4,10 +4,10 @@ import random
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
-from charuco_utils import analyse_calibration_data, detect_charuco_board_pose_images, detect_corners_charuco_cube_images, generate_charuco_board
+from charuco_utils import analyse_calibration_data, calculate_hand_eye_reprojection_error, calibrate_hand_eye, detect_charuco_board_pose_images, detect_corners_charuco_cube_images, generate_charuco_board, sort_and_filter_matched_corners
 import matplotlib.pyplot as plt
 
-from utils import create_folders, sample_dataset
+from utils import create_folders, filter_and_merge_hand_eye_df, find_best_intrinsics, sample_dataset
 
 
 def generate_board_table(image_pths, board,table_data_pth,table_info_pth,  min_num_corners=6,percentage_of_corners=0.2, waiting_time=1, 
@@ -18,7 +18,7 @@ def generate_board_table(image_pths, board,table_data_pth,table_info_pth,  min_n
     
     if intrinsics is not None and distortion is not None:
         # this will also return board pose information (for hand-eye calibration)
-        updated_image_pths, min_corners, T, imgPoints, objPoints =    detect_charuco_board_pose_images( board, image_pths,intrinsics, distortion,return_corners=True, min_num_corners=min_num_corners, waiting_time=waiting_time)
+        updated_image_pths, min_corners, T, imgPoints, objPoints, ids =    detect_charuco_board_pose_images( board, image_pths,intrinsics, distortion,return_corners=True, min_num_corners=min_num_corners, waiting_time=waiting_time)
     else:
         # for intrinsics calibration
         updated_image_pths, imgPoints, objPoints, min_corners = detect_corners_charuco_cube_images( board, image_pths, min_num_corners=min_num_corners,percentage_of_corners=percentage_of_corners, waiting_time=waiting_time)
@@ -36,6 +36,7 @@ def generate_board_table(image_pths, board,table_data_pth,table_info_pth,  min_n
     # if intrinsics path, we want to also add the board pose
     if intrinsics is not None and distortion is not None:
         data_df['T'] = T
+        data_df['ids'] = ids
 
     # save original number of images and the number of images with detected corners aswell as the number of corners detected in total
     original_number_of_images = len(image_pths)
@@ -117,7 +118,7 @@ def main_hand_eye():
     num_images_end=50 
     num_images_step=2
     visualise_reprojection_error=False
-    waitTime = 1
+    waitTime = 0
 
     rec_data = f'MC_{min_num_corners}_PC_{percentage_of_corners}'
     #rec_analysis = f'R{reprojection_sample_size}_N{num_images_start}_{num_images_end}_{num_images_step}_repeats_{repeats}'
@@ -129,31 +130,62 @@ def main_hand_eye():
     create_folders([table_pth, filtered_table_pth]) #, analysis_results_pth
     intrinsics_pth = f'results/intrinsics/calibration_analysis/R1000_N5_50_2_repeats_50'
 
-    """ plt.figure() """
+    ######## GENERATE TABLES ########
     for size_chess in chess_sizes:
         for camera in cameras:
             image_pths = glob.glob(f'{data_path}/{size_chess}_charuco/pose*/acc_{size_chess}_pos*_deg*_*/raw/he_calibration_images/hand_eye_{camera}/*.{img_g_ext}')
             board= generate_charuco_board(size_chess)
             
             #analysis_results_pth = f'results/hand_eye/calibration_analysis/{rec_analysis}'
-            intrinsics_all_data = pd.read_pickle(f'{intrinsics_pth}/{size_chess}_{camera}_calibration_data.pkl')
-            # find where average_error is smallest
-            intrinsics_all_data = intrinsics_all_data[intrinsics_all_data.average_error == intrinsics_all_data.average_error.min()]
-            errors_all = intrinsics_all_data['errors'].values[0]
-            intrinsics = intrinsics_all_data['intrinsics'].values[0][errors_all.index(min(errors_all))]
-            distortion = intrinsics_all_data['distortion'].values[0][errors_all.index(min(errors_all))]
-
-
+            
+            intrinsics, distortion = find_best_intrinsics(intrinsics_pth, size_chess, camera)
+            
             # path where to save tables of board data ['paths', 'imgPoints', 'objPoints', 'chess_size', 'pose', 'deg','direction', 'frame_number']
             table_data_pth = f'{table_pth}/{size_chess}_{camera}_corner_data.pkl'
             # path where to save info about the board data (original number of images, number of images with corners, number of corners detected)
             table_info_pth = f'{table_pth}/{size_chess}_{camera}_corner_info.csv'
-
-            generate_board_table(image_pths, board,table_data_pth,table_info_pth,  
+            
+            ###### TABLE GENERATION ######
+            if os.path.isfile(table_data_pth) and os.path.isfile(table_info_pth):
+                data_df = pd.read_pickle(table_data_pth)
+                info_df = pd.read_csv(table_info_pth)
+            else:
+                data_df, info_df = generate_board_table(image_pths, board,table_data_pth,table_info_pth,  
                                  min_num_corners=min_num_corners,percentage_of_corners=percentage_of_corners, waiting_time=1, 
                                  intrinsics=intrinsics, distortion=distortion )
-        
 
+    ##### H-E CALIBRATION AND ANALYSIS #####
+    for size_chess in chess_sizes: 
+
+        data_df_endo = pd.read_pickle(f'{table_pth}/{size_chess}_endo_corner_data.pkl')
+        data_df_realsense = pd.read_pickle(f'{table_pth}/{size_chess}_realsense_corner_data.pkl')
+        info_df_endo = pd.read_csv(f'{table_pth}/{size_chess}_endo_corner_info.csv')
+
+        data_df_combined = filter_and_merge_hand_eye_df(data_df_endo, data_df_realsense, info_df_endo)
+
+        T_endo_lst = data_df_combined['T_endo']
+        T_realsense_lst = data_df_combined['T_rs']
+        
+        hand_eye = calibrate_hand_eye(T_endo_lst, T_realsense_lst)
+        print(hand_eye)
+        print(f'table done for camera {camera}, size_chess {size_chess}')
+        
+        world2realsense = T_realsense_lst.values
+        objPoints = data_df_combined['objPoints_rs'].values
+        imgPoints= data_df_combined['imgPoints_endo'].values
+        ids_endo = data_df_combined['ids_endo'].values
+        ids_realsense = data_df_combined['ids_rs'].values
+        endo_reprojection_images_pth = data_df_combined['paths_endo'].values
+
+        
+        # calculate reprojection error
+        intrinsics_endo,distortion_endo  = find_best_intrinsics(intrinsics_pth, size_chess, 'endo')
+        mean_errors_np, mean_errors  = calculate_hand_eye_reprojection_error(hand_eye,world2realsense,
+                                                                             objPoints, imgPoints, 
+                                                                             intrinsics_endo, distortion_endo, 
+                                                                             waitTime=waitTime,  
+                                                                             endo_reprojection_images_pth=endo_reprojection_images_pth)
+        print(mean_errors_np, mean_errors)
         #plt.plot(size_chess, camera)
     """ plt.legend()
     plt.show() """

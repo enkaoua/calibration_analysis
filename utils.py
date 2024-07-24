@@ -3,6 +3,9 @@ import pandas as pd
 import cv2
 import sksurgerycore.transforms.matrix as skcm
 import numpy as np
+from scipy.spatial.transform import Rotation
+
+from charuco_utils import sort_and_filter_matched_corners
 
 def extrinsic_vecs_to_matrix(rvec, tvec):
     """
@@ -84,3 +87,108 @@ def create_folders(folders):
         if not os.path.isdir(f'{folder}'):
             os.makedirs(f'{folder}')
 
+def reprojection_error(imgpoints_detected, imgpoints_reprojected, image=None):
+    """
+    calculate reprojection error given the detected and reprojected points
+    """
+    squared_diffs = np.square(imgpoints_detected- imgpoints_reprojected)
+    error_np = np.sqrt(np.sum(squared_diffs)/len(imgpoints_reprojected))
+
+    # different way of calculating
+    error = np.sqrt((np.square(cv2.norm(imgpoints_detected, imgpoints_reprojected, cv2.NORM_L2))/len(imgpoints_reprojected)))
+    if image is not None:
+        img_shape = image.shape
+        for corner_reprojected, corner_detected in zip(imgpoints_reprojected,imgpoints_detected):
+            # change dtypw of corner to int
+            corner_detected = corner_detected.astype(int)
+            corner_reprojected = corner_reprojected.astype(int)
+            centre_detected = corner_detected.ravel()
+            centre_reprojected = corner_reprojected.ravel()
+            # check if points are within image
+            if centre_detected[0] < 0 or centre_detected[0] > img_shape[1] or centre_detected[1] < 0 or centre_detected[1] > img_shape[0]:
+                continue
+            if centre_reprojected[0] < 0 or centre_reprojected[0] > img_shape[1] or centre_reprojected[1] < 0 or centre_reprojected[1] > img_shape[0]:
+                continue
+            cv2.circle(image, (int(centre_detected[0]),    int(centre_detected[1])),    3, (0, 0, 255), -1)
+            cv2.circle(image, (int(centre_reprojected[0]), int(centre_reprojected[1])), 3, (0, 255, 0), -1)
+
+        return error_np, error, image
+    
+    return error_np, error
+
+
+def calculate_transform_average(r_lst, t_lst):
+    """
+    calculates mean of rotation and translation vectors using scipy
+    Args:
+        r_lst (list): list of rotation vectors
+        t_lst (list): list of translation vectors
+    Returns:
+        mean_he (np.array): 4x4 transformation matrix
+    """
+    # average hand eye
+    scipy_rot = Rotation.from_rotvec(np.array(r_lst).reshape((-1,3)), degrees=False)
+    mean_rot = scipy_rot.mean().as_rotvec()
+
+    mean_t = np.mean(np.asarray(t_lst).reshape(-1,3), axis=0)
+
+    mean_he = extrinsic_vecs_to_matrix(mean_rot, mean_t)
+    return mean_he
+
+
+def find_best_intrinsics(intrinsics_pth, size_chess, camera):
+    intrinsics_all_data = pd.read_pickle(f'{intrinsics_pth}/{size_chess}_{camera}_calibration_data.pkl')
+    # find where average_error is smallest
+    intrinsics_all_data = intrinsics_all_data[intrinsics_all_data.average_error == intrinsics_all_data.average_error.min()]
+    errors_all = intrinsics_all_data['errors'].values[0]
+    intrinsics = intrinsics_all_data['intrinsics'].values[0][errors_all.index(min(errors_all))]
+    distortion = intrinsics_all_data['distortion'].values[0][errors_all.index(min(errors_all))]
+
+    return intrinsics, distortion
+
+
+def filter_and_merge_hand_eye_df(data_df_endo, data_df_realsense, info_df_endo):
+    # combine information of paths for filtering those that don't match between endo and rs
+    data_df_endo['combined_info'] = data_df_endo[['chess_size', 'pose', 'deg', 'direction', 'frame_number']].astype(str).agg('_'.join, axis=1)
+    data_df_realsense['combined_info'] = data_df_realsense[['chess_size', 'pose', 'deg', 'direction', 'frame_number']].astype(str).agg('_'.join, axis=1)
+
+    # find common images between endo and realsense
+    common_keys = set(data_df_endo['combined_info']).intersection(set(data_df_realsense['combined_info']))
+    # take out file names that don't match and reset index to ensure they're matching
+    data_df_endo = data_df_endo[data_df_endo['combined_info'].isin(common_keys)].reset_index(drop=True)
+    data_df_realsense = data_df_realsense[data_df_realsense['combined_info'].isin(common_keys)].reset_index(drop=True)
+
+    # Drop the info key column 
+    data_df_endo.drop(columns=['combined_info'], inplace=True)
+    data_df_realsense.drop(columns=['combined_info'], inplace=True)
+
+    # merge endo and rs into one dataframe
+    common_columns = ['chess_size', 'pose', 'deg', 'direction', 'frame_number']
+    data_df_combined = pd.merge(
+        data_df_endo,
+        data_df_realsense,
+        on=common_columns,
+        suffixes=('_endo', '_rs')
+    )
+    
+    
+    #### HAND-EYE CALIBRATION ####
+    # filter out any unmatched points        
+    removed_ids = []
+    for row_idx, row in data_df_combined.iterrows():
+        pnts_endo = row['imgPoints_endo']
+        pnts_3d_rs = row['objPoints_rs']
+        ids_e = row['ids_endo']
+        ids_r = row['ids_rs']
+        imgPoints_matched, objPoints_matched, img_ids, obj_ids = sort_and_filter_matched_corners(pnts_endo, pnts_3d_rs, ids_e, ids_r, return_ids=True)
+        if len(imgPoints_matched)<info_df_endo.data[3]:
+            # remove row from dataframe
+            data_df_combined.drop(row_idx, inplace=True)
+            removed_ids.append(row_idx)
+        else:
+            # update the dataframe
+            data_df_combined.at[row_idx, 'imgPoints_endo'] = imgPoints_matched
+            data_df_combined.at[row_idx, 'objPoints_rs'] = objPoints_matched
+            data_df_combined.at[row_idx, 'ids_endo'] = img_ids
+            data_df_combined.at[row_idx, 'ids_rs'] = obj_ids
+    return data_df_combined
