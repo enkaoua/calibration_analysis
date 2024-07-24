@@ -5,7 +5,49 @@ import sksurgerycore.transforms.matrix as skcm
 import numpy as np
 from scipy.spatial.transform import Rotation
 
-from charuco_utils import sort_and_filter_matched_corners
+
+
+def sort_and_filter_matched_corners(corners_endo, corners_realsense, ids_endo, ids_realsense, return_ids=False):
+    '''
+    function to sort and remove corners that dont match between two arrays given their IDs
+    # TODO can extend this function to more than 2 sets of points
+    '''
+
+    # sort realsense ids and corners
+    sorted_idx = np.argsort(ids_realsense.flatten())
+    realsense_sorted_ids = ids_realsense[sorted_idx]
+    corners_realsense_sorted = np.array(corners_realsense)[sorted_idx]
+
+    sorted_idx = np.argsort(ids_endo.flatten())
+    endo_sorted_ids = ids_endo[sorted_idx]
+    corners_endo_sorted = np.array(corners_endo)[sorted_idx]
+
+    # find common numbers in both lists
+    #common_idx = np.intersect1d(idx_realsense_sorted,idx_endo_sorted)
+    
+    # IDs found in endo but not in realsense
+    unique_endo_id = np.setdiff1d(endo_sorted_ids, realsense_sorted_ids)
+    # remove unique_endo_id from endo_sorted_ids
+    new_endo_idx = ~np.isin(endo_sorted_ids, unique_endo_id)#(endo_sorted_ids != unique_endo_id).any(axis=1)
+    #new_endo_idx = np.setdiff1d(endo_sorted_ids, unique_endo_id)
+
+    if len(unique_endo_id)>0:
+        endo_sorted_ids = endo_sorted_ids[new_endo_idx]
+        corners_endo_sorted = corners_endo_sorted[new_endo_idx]
+
+    # remove unique IDs found in rs but not endo
+    unique_rs_id = np.setdiff1d(realsense_sorted_ids, endo_sorted_ids)
+    new_rs_idx = ~np.isin(realsense_sorted_ids, unique_rs_id)
+    #new_rs_idx = np.setdiff1d(realsense_sorted_ids, unique_rs_id)
+    if len(unique_rs_id)>0:
+        realsense_sorted_ids = realsense_sorted_ids[new_rs_idx]
+        corners_realsense_sorted = corners_realsense_sorted[new_rs_idx]
+
+    if return_ids:
+        return corners_endo_sorted, corners_realsense_sorted, endo_sorted_ids, realsense_sorted_ids
+    return corners_endo_sorted, corners_realsense_sorted
+
+
 
 def extrinsic_vecs_to_matrix(rvec, tvec):
     """

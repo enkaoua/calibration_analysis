@@ -5,7 +5,7 @@ import os
 import glob
 
 from tqdm import tqdm
-from utils import calculate_transform_average, extrinsic_matrix_to_vecs, extrinsic_vecs_to_matrix, reprojection_error, sample_dataset
+from utils import calculate_transform_average, extrinsic_matrix_to_vecs, extrinsic_vecs_to_matrix, reprojection_error, sample_dataset, sort_and_filter_matched_corners
 import pandas as pd
  
 
@@ -180,70 +180,6 @@ def calculate_hand_eye_reprojection_error(hand_eye,world2realsense,objPoints, im
         mean_errors.append(error)  
 
     return mean_errors_np, mean_errors      
-""" 
-    for pth_endo, pth_realsense in zip(endo_image_pths, rs_image_pths):
-
-        # load img and change to gray
-        img_realsense = cv2.imread(str(pth_realsense))
-        img_endo = cv2.imread(str(pth_endo))
-        undistorted_img_realsense = cv2.undistort(img_realsense, intrinsics_realsense, distortion_realsense)
-        undistorted_img_endo = cv2.undistort(img_endo, intrinsics_endo, distortion_endo)
-
-        # obtain position of aruco board relative to each camera
-        pose_detected_realsense, annotated_imag_realsense, rvecs_realsense, tvecs_realsense, corners_realsense, ids_realsense = detect_charuco_board_pose(img_realsense, intrinsics_realsense, distortion_realsense, board, return_corners=True)
-        pose_detected_endo_gt, annotated_imag_endo_gt, rvecs_endo_gt, tvecs_endo_gt, corners_endo_gt, ids_endo_gt = detect_charuco_board_pose(img_endo, intrinsics_endo, distortion_endo, board, return_corners=True)
-        #board_points3D = np.array(board.getChessboardCorners())
-        board_points3D = np.array(board.getObjPoints())
-
-        # view annotated rs image
-        '''cv2.imshow('endo',annotated_imag_endo_gt)
-        cv2.imshow('distorted',img_endo)
-        cv2.waitKey(0) '''
-
-        # converting detected poses of endo and rs to 4x4 transforms
-        #world2endo = extrinsic_vecs_to_matrix(rvecs_endo_gt,tvecs_endo_gt)
-        world2realsense = extrinsic_vecs_to_matrix(rvecs_realsense,tvecs_realsense)
-        
-        # starting with 3D points of board in board coords, in homogeneous coords
-        #board_points3D = np.array(board.getObjPoints())
-        board_ids = board.getIds()
-        
-        # filter board points so the tags that weren't detected in endo img are not considered
-        _, allCorners3D_np_sorted_filtered = sort_and_filter_matched_corners(corners_endo_gt, board_points3D, ids_endo_gt, board_ids)
-        board_points_world = allCorners3D_np_sorted_filtered.reshape(-1,3)
-        # filter points by whatever was detected from endo side
-        board_points_world_hom = cv2.convertPointsToHomogeneous(board_points_world).squeeze()
-        # convert to realsense coord system
-        points3D_realsense = (world2realsense @ board_points_world_hom.T).T
-        # hand-eye to convert to endo frame
-        points3D_endo = (hand_eye@points3D_realsense.T).T
-        # project 3D points to 2D endo image plane
-        proj_points_2d_endo, _ = cv2.projectPoints(cv2.convertPointsFromHomogeneous(points3D_endo), np.zeros((1,3)),  np.zeros((1,3)), intrinsics_endo, distortion_endo)
-        proj_points_2d_endo = proj_points_2d_endo.squeeze().astype(np.float32)
-
-        # compare those 2D points to the detected ones considered as ground truth
-        img_points_endo_detected = np.array(corners_endo_gt).reshape(-1,2).astype(np.float32)
-        
-        # calculate error
-        error_np, error, annotated_image_endo_board = reprojection_error(img_points_endo_detected, proj_points_2d_endo, undistorted_img_endo)
-        
-        mean_errors_np.append(error_np)
-        mean_errors.append(error)
-
-        # show annotated image
-        if image_pths is not None:
-            image = cv2.imread(image_pths[i])
-            error_np, error, annotated_image = reprojection_error(imgpoints_detected, imgpoints_reprojected, image=image)
-            cv2.imshow('charuco board', annotated_image)
-            cv2.waitKey(waitTime) 
-
-        cv2.imshow('annotated image',  annotated_image_endo_board)
-        cv2.waitKey(0)
-
-        
-    return error """
-
-
 
 
 ######################################################
@@ -617,47 +553,6 @@ def generate_charuco_board(size_of_checkerboard, return_all_params=False):
     if return_all_params:
         return board, aruco_h, aruco_w, aruco_size, aruco_dict
     return board
-
-def sort_and_filter_matched_corners(corners_endo, corners_realsense, ids_endo, ids_realsense, return_ids=False):
-    '''
-    function to sort and remove corners that dont match between two arrays given their IDs
-    # TODO can extend this function to more than 2 sets of points
-    '''
-
-    # sort realsense ids and corners
-    sorted_idx = np.argsort(ids_realsense.flatten())
-    realsense_sorted_ids = ids_realsense[sorted_idx]
-    corners_realsense_sorted = np.array(corners_realsense)[sorted_idx]
-
-    sorted_idx = np.argsort(ids_endo.flatten())
-    endo_sorted_ids = ids_endo[sorted_idx]
-    corners_endo_sorted = np.array(corners_endo)[sorted_idx]
-
-    # find common numbers in both lists
-    #common_idx = np.intersect1d(idx_realsense_sorted,idx_endo_sorted)
-    
-    # IDs found in endo but not in realsense
-    unique_endo_id = np.setdiff1d(endo_sorted_ids, realsense_sorted_ids)
-    # remove unique_endo_id from endo_sorted_ids
-    new_endo_idx = ~np.isin(endo_sorted_ids, unique_endo_id)#(endo_sorted_ids != unique_endo_id).any(axis=1)
-    #new_endo_idx = np.setdiff1d(endo_sorted_ids, unique_endo_id)
-
-    if len(unique_endo_id)>0:
-        endo_sorted_ids = endo_sorted_ids[new_endo_idx]
-        corners_endo_sorted = corners_endo_sorted[new_endo_idx]
-
-    # remove unique IDs found in rs but not endo
-    unique_rs_id = np.setdiff1d(realsense_sorted_ids, endo_sorted_ids)
-    new_rs_idx = ~np.isin(realsense_sorted_ids, unique_rs_id)
-    #new_rs_idx = np.setdiff1d(realsense_sorted_ids, unique_rs_id)
-    if len(unique_rs_id)>0:
-        realsense_sorted_ids = realsense_sorted_ids[new_rs_idx]
-        corners_realsense_sorted = corners_realsense_sorted[new_rs_idx]
-
-    if return_ids:
-        return corners_endo_sorted, corners_realsense_sorted, endo_sorted_ids, realsense_sorted_ids
-    return corners_endo_sorted, corners_realsense_sorted
-
 
 
 

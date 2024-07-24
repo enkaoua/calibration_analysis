@@ -4,7 +4,7 @@ import random
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
-from charuco_utils import analyse_calibration_data, calculate_hand_eye_reprojection_error, calibrate_hand_eye, detect_charuco_board_pose_images, detect_corners_charuco_cube_images, generate_charuco_board, sort_and_filter_matched_corners
+from charuco_utils import analyse_calibration_data, calculate_hand_eye_reprojection_error, calibrate_hand_eye, detect_charuco_board_pose_images, detect_corners_charuco_cube_images, generate_charuco_board
 import matplotlib.pyplot as plt
 
 from utils import create_folders, filter_and_merge_hand_eye_df, find_best_intrinsics, sample_dataset
@@ -102,6 +102,30 @@ def perform_analysis(camera, size_chess, data_df, reprojection_data_df, repeats=
     data_df = pd.DataFrame(data=data)
     data_df.to_pickle(results_pth)
 
+def perform_hand_eye_calibration_analysis(data_df, reprojection_data_df, intrinsics_pth, size_chess, waitTime=1):
+    
+    # hand-eye calibration
+    T_endo_lst = data_df['T_endo']
+    T_realsense_lst = data_df['T_rs']
+        
+    hand_eye = calibrate_hand_eye(T_endo_lst, T_realsense_lst)
+    print(hand_eye)
+    
+    # reprojection error
+    world2realsense = reprojection_data_df['T_rs'].values
+    objPoints = reprojection_data_df['objPoints_rs'].values
+    imgPoints= reprojection_data_df['imgPoints_endo'].values
+    endo_reprojection_images_pth = reprojection_data_df['paths_endo'].values
+
+    
+    # calculate reprojection error
+    intrinsics_endo,distortion_endo  = find_best_intrinsics(intrinsics_pth, size_chess, 'endo')
+    mean_errors_np, mean_errors  = calculate_hand_eye_reprojection_error(hand_eye,world2realsense,
+                                                                            objPoints, imgPoints, 
+                                                                            intrinsics_endo, distortion_endo, 
+                                                                            waitTime=waitTime,  
+                                                                            endo_reprojection_images_pth=endo_reprojection_images_pth)
+    print(mean_errors_np, mean_errors)
 
 def main_hand_eye():
     data_path = '/Users/aure/Documents/CARES/data/massive_calibration_data'
@@ -121,13 +145,13 @@ def main_hand_eye():
     waitTime = 0
 
     rec_data = f'MC_{min_num_corners}_PC_{percentage_of_corners}'
-    #rec_analysis = f'R{reprojection_sample_size}_N{num_images_start}_{num_images_end}_{num_images_step}_repeats_{repeats}'
-
+    rec_analysis = f'R{reprojection_sample_size}_N{num_images_start}_{num_images_end}_{num_images_step}_repeats_{repeats}'
 
     table_pth = f'results/hand_eye/raw_corner_data/{rec_data}'
     filtered_table_pth = f'results/hand_eye/split_data/{rec_data}'
-    
-    create_folders([table_pth, filtered_table_pth]) #, analysis_results_pth
+    analysis_results_pth = f'results/intrinsics/calibration_analysis/{rec_analysis}'
+
+    create_folders([table_pth, filtered_table_pth, analysis_results_pth]) #, analysis_results_pth
     intrinsics_pth = f'results/intrinsics/calibration_analysis/R1000_N5_50_2_repeats_50'
 
     ######## GENERATE TABLES ########
@@ -160,35 +184,40 @@ def main_hand_eye():
         data_df_endo = pd.read_pickle(f'{table_pth}/{size_chess}_endo_corner_data.pkl')
         data_df_realsense = pd.read_pickle(f'{table_pth}/{size_chess}_realsense_corner_data.pkl')
         info_df_endo = pd.read_csv(f'{table_pth}/{size_chess}_endo_corner_info.csv')
-
+        
+        # FILTER TABLES AND MERGE
         data_df_combined = filter_and_merge_hand_eye_df(data_df_endo, data_df_realsense, info_df_endo)
+        # Split to reprojection and calibration
+        # filtered data (table data just split into reprojection and calibration)
+        filtered_reprojection_dataset_pth = f'{filtered_table_pth}/{size_chess}_{camera}_corner_data_reprojection_dataset.pkl'
+        filtered_calibration_dataset_pth = f'{filtered_table_pth}/{size_chess}_{camera}_corner_data_calibration_dataset.pkl'
+        if os.path.isfile(filtered_reprojection_dataset_pth) and os.path.isfile(filtered_calibration_dataset_pth):
+            reprojection_data_df = pd.read_pickle(filtered_reprojection_dataset_pth)
+            remaining_samples = pd.read_pickle(filtered_calibration_dataset_pth)
+        else:
+            # sample dataset to split to reprojection and calibration
+            reprojection_data_df, remaining_samples  = sample_dataset(data_df, total_samples=reprojection_sample_size)
+            # save the selected samples
+            reprojection_data_df.to_pickle(filtered_reprojection_dataset_pth)
+            remaining_samples.to_pickle(filtered_calibration_dataset_pth)
 
-        T_endo_lst = data_df_combined['T_endo']
-        T_realsense_lst = data_df_combined['T_rs']
-        
-        hand_eye = calibrate_hand_eye(T_endo_lst, T_realsense_lst)
-        print(hand_eye)
-        print(f'table done for camera {camera}, size_chess {size_chess}')
-        
-        world2realsense = T_realsense_lst.values
-        objPoints = data_df_combined['objPoints_rs'].values
-        imgPoints= data_df_combined['imgPoints_endo'].values
-        ids_endo = data_df_combined['ids_endo'].values
-        ids_realsense = data_df_combined['ids_rs'].values
-        endo_reprojection_images_pth = data_df_combined['paths_endo'].values
+        ###### HAND-EYE CALIBRATION ######
+        # analysis data (['errros', 'intrinsics', 'distortion', 'average_error', 'std_error'])
+        calibration_analysis_results_save_pth = f'{analysis_results_pth}/{size_chess}_{camera}_calibration_data.pkl'
+
+        if os.path.isfile(calibration_analysis_results_save_pth):
+            calibration_data_df = pd.read_pickle(calibration_analysis_results_save_pth)
+        else:
+            # perform calibration analysis
+            perform_hand_eye_calibration_analysis(camera, size_chess, 
+                            remaining_samples,reprojection_data_df, repeats=repeats, 
+                            num_images_start=num_images_start, num_images_end=num_images_end, num_images_step=num_images_step,
+                            visualise_reprojection_error=visualise_reprojection_error, waitTime=waitTime,
+                            results_pth = calibration_analysis_results_save_pth)
+        print(f'analysis done for camera {camera}, size_chess {size_chess}')
 
         
-        # calculate reprojection error
-        intrinsics_endo,distortion_endo  = find_best_intrinsics(intrinsics_pth, size_chess, 'endo')
-        mean_errors_np, mean_errors  = calculate_hand_eye_reprojection_error(hand_eye,world2realsense,
-                                                                             objPoints, imgPoints, 
-                                                                             intrinsics_endo, distortion_endo, 
-                                                                             waitTime=waitTime,  
-                                                                             endo_reprojection_images_pth=endo_reprojection_images_pth)
-        print(mean_errors_np, mean_errors)
-        #plt.plot(size_chess, camera)
-    """ plt.legend()
-    plt.show() """
+
 
 
 def main_intrinsics(): 
@@ -212,7 +241,7 @@ def main_intrinsics():
     table_pth = f'results/intrinsics/raw_corner_data/{rec_data}'
     filtered_table_pth = f'results/intrinsics/split_data/{rec_data}'
     analysis_results_pth = f'results/intrinsics/calibration_analysis/{rec_analysis}'
-    analysis_results_pth = f'results/intrinsics/best_intrinsics/{rec_analysis}'
+    #analysis_results_pth = f'results/intrinsics/best_intrinsics/{rec_analysis}'
 
     create_folders([table_pth, filtered_table_pth, analysis_results_pth])
     
@@ -237,12 +266,14 @@ def main_intrinsics():
             board= generate_charuco_board(size_chess)
             
             # board data table generation
+            # generate the board data by detecting the corners in the images or load previously generated data
             if os.path.isfile(table_data_pth) and os.path.isfile(table_info_pth):
                 data_df = pd.read_pickle(table_data_pth)
                 info_df = pd.read_csv(table_info_pth)
             else:
                 data_df, info_df = generate_board_table(image_pths,board,table_data_pth, table_info_pth, min_num_corners=min_num_corners,percentage_of_corners=percentage_of_corners, waiting_time=1)
-            # generate the board data by detecting the corners in the images or load previously generated data
+            
+            # split the data into reprojection and calibration
             if os.path.isfile(filtered_reprojection_dataset_pth) and os.path.isfile(filtered_calibration_dataset_pth):
                 reprojection_data_df = pd.read_pickle(filtered_reprojection_dataset_pth)
                 remaining_samples = pd.read_pickle(filtered_calibration_dataset_pth)
