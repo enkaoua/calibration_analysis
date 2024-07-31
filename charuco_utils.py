@@ -5,7 +5,7 @@ import os
 import glob
 
 from tqdm import tqdm
-from utils import calculate_transform_average, extrinsic_matrix_to_vecs, extrinsic_vecs_to_matrix, reprojection_error, sample_dataset, sort_and_filter_matched_corners
+from utils import calculate_transform_average, extrinsic_matrix_to_vecs, extrinsic_vecs_to_matrix, find_best_intrinsics, reprojection_error, sample_dataset, sort_and_filter_matched_corners
 import pandas as pd
  
 
@@ -182,6 +182,79 @@ def calculate_hand_eye_reprojection_error(hand_eye,world2realsense,objPoints, im
     return mean_errors_np, mean_errors      
 
 
+def he_analysis(data_df, reprojection_data_df, intrinsics_pth, size_chess, waitTime=1, n=10, repeats=1000, visualise_reprojection_error=False):
+    
+    hand_eye_lst = []
+    errors = []
+    for i in tqdm(range(repeats)):
+        
+        # sample n images from the dataset
+        calibration_data, _  = sample_dataset(data_df, total_samples=n)
+
+        # hand-eye calibration
+        T_endo_lst = calibration_data['T_endo']
+        T_realsense_lst = calibration_data['T_rs']
+            
+        hand_eye = calibrate_hand_eye(T_endo_lst, T_realsense_lst)
+        
+        # reprojection error
+        world2realsense = reprojection_data_df['T_rs'].values
+        objPoints = reprojection_data_df['objPoints_rs'].values
+        imgPoints= reprojection_data_df['imgPoints_endo'].values
+
+        
+        # calculate reprojection error
+        intrinsics_endo,distortion_endo  = find_best_intrinsics(intrinsics_pth, size_chess, 'endo')
+        if visualise_reprojection_error:
+            endo_reprojection_images_pth = reprojection_data_df['paths_endo'].values
+        else: 
+            endo_reprojection_images_pth = []
+        err_np, err  = calculate_hand_eye_reprojection_error(hand_eye,world2realsense,
+                                                                                objPoints, imgPoints, 
+                                                                                intrinsics_endo, distortion_endo, 
+                                                                                waitTime=waitTime,  
+                                                                                endo_reprojection_images_pth=endo_reprojection_images_pth)
+        # calculating mean reprojection error between all images
+        mean_err = pd.DataFrame(err).mean()[0]
+        median_err = pd.DataFrame(err).median()[0]
+        if mean_err-median_err>0.5:
+            reprojection_error_mean_final = median_err
+        else:
+            reprojection_error_mean_final = mean_err
+        errors.append(reprojection_error_mean_final)
+        hand_eye_lst.append(hand_eye)
+
+    
+
+    return errors, hand_eye_lst
+
+def perform_hand_eye_calibration_analysis(data_df, reprojection_data_df, intrinsics_pth, size_chess, repeats=1000, num_images_start=5, num_images_end=60, num_images_step=2,  waitTime=1, visualise_reprojection_error=False, results_pth=''):
+    
+    num_images_lst = np.arange(num_images_start, num_images_end, num_images_step)
+
+    average_error_lst = []
+    error_lst = []
+    all_hand_eye = []
+    std_error_lst = []
+    for num_images in num_images_lst:
+        errors_lst, hand_eye_lst = he_analysis(data_df, reprojection_data_df, 
+                                               intrinsics_pth, size_chess, 
+                                               waitTime=waitTime, n=num_images, repeats=repeats, 
+                                               visualise_reprojection_error=visualise_reprojection_error)
+    
+        error_lst.append(errors_lst)
+        average_error_lst.append(np.mean(errors_lst))
+        std_error_lst.append(np.std(errors_lst))
+        all_hand_eye.append(hand_eye_lst)
+
+    # save intrinsics, distortion and errors
+    data = {'num_images_lst':num_images_lst, 'errors':error_lst, 'hand_eye':all_hand_eye,'average_error':average_error_lst, 'std_error':std_error_lst}
+    data_df = pd.DataFrame(data=data)
+    data_df.to_pickle(results_pth)
+
+    return
+
+
 ######################################################
 ######## INTRINSICS ##################################
 ######################################################
@@ -208,7 +281,7 @@ def analyse_calibration_data(board_data,
     intrinsics = []
     distortion = []
     errors = []
-    for i in tqdm(range(repeats)):
+    for i in range(repeats):
         # generate n+R random numbers that are in the range of the above loaded images
         #random_indices = random.sample(range(len(board_data)), R+n)
         #img_indeces_for_calibration = random_indices[R:]
@@ -297,6 +370,59 @@ def analyse_calibration_data(board_data,
     """
     return errors, intrinsics, distortion
 
+def perform_analysis(camera, size_chess, data_df, reprojection_data_df, repeats=1000, num_images_start=5, num_images_end=60, num_images_step=2, 
+                     visualise_reprojection_error=False, waitTime=1, results_pth='' ): #, info_df,board,image_pths
+    
+    # perform calibration analysis
+    if camera =='realsense':
+        intrinsics_initial_guess_pth = f'calibration_estimates/intrinsics_realsense.txt'
+    else:
+        intrinsics_initial_guess_pth = f'calibration_estimates/intrinsics_endo.txt'
+
+    num_images_lst = np.arange(num_images_start, num_images_end, num_images_step)
+    average_error_lst = []
+    error_lst = []
+    all_intrinsics = []
+    all_distortion = []
+    std_error_lst = []
+    for num_images in num_images_lst:
+        errors, intrinsics, distortion = analyse_calibration_data(data_df,
+                             reprojection_data_df, # number of frames to use for calculating reprojection loss
+                             n = num_images, # number of frames to use for calibration
+                             repeats = repeats, # number of repeats for the calibration
+                             #size_chess = size_chess,
+                             #calibration_save_pth = '',
+                             intrinsics_initial_guess_pth=intrinsics_initial_guess_pth,
+                             visualise_reprojection_error=visualise_reprojection_error,
+                             waitTime=waitTime # time to display each image for (in seconds) when showing reprojection
+                             )
+        # ignore infinite errors
+        errors_filtered = [e for e in errors if not np.isinf(e)]
+        # ignore anything larger than 20
+        errors_filtered = [e for e in errors if e < 20]
+        # print how many were infinite or larger than 20
+        #print(f'Number of larger errors: {len(errors)-len(errors_filtered)}')
+        
+        error_lst.append(errors)
+        average_error_lst.append(np.mean(errors_filtered))
+        std_error_lst.append(np.std(errors_filtered))
+        all_intrinsics.append(intrinsics)
+        all_distortion.append(distortion)
+
+    # plot number of images vs average reprojection error with standard deviation
+    #plt.plot(num_images_lst, average_error_lst, label=f'{size_chess}_{camera}')
+    #plt.errorbar(num_images_lst, average_error_lst, yerr=std_error_lst)
+    #plt.xlabel('Number of images')
+    #plt.ylabel('Average reprojection error')
+    
+    # save intrinsics, distortion and errors
+    results = {'num_images_lst':num_images_lst, 'errors':error_lst, 'intrinsics':all_intrinsics,'distortion':all_distortion,  'average_error':average_error_lst, 'std_error':std_error_lst}
+    results_df = pd.DataFrame(data=results)
+    
+    # save dataframe
+    if len(results_pth)>0:
+        results_df.to_pickle(results_pth)
+    return results_df
 
 def calculate_reprojection_error(mtx, dist, objPoints, imgPoints, image_pths=None, waitTime=1):
     """
@@ -335,9 +461,7 @@ def calculate_reprojection_error(mtx, dist, objPoints, imgPoints, image_pths=Non
         
         if len(objPoints[i])<4 or len(imgPoints[i])<4:
             continue
-        # load image
-        #image = cv2.imread(image_pths[i])
-        #image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        
         # Estimate rvec and tvec using solvePnP
         retval, rvec, tvec = cv2.solvePnP(objPoints[i], imgPoints[i], mtx, dist)
         # Project 3D points to image plane
@@ -361,11 +485,7 @@ def calculate_reprojection_error(mtx, dist, objPoints, imgPoints, image_pths=Non
         reprojection_error_mean_final = median
     else:
         reprojection_error_mean_final = mean
-    #reprojection_error_mean_final = np.array(mean_errors).mean()
-    #print(f'Reprojection error: {np.array(mean_errors).mean()}')
-    #print(f'Reprojection error np: {np.array(mean_errors_np).mean()}')
-    #path_name = os.path.basename(reprojection_images_pth).split('_')[-1]
-    #print(f'{path_name} reprojection error: {reprojection_error_mean_final}')
+    
     return reprojection_error_mean_final
 
 
