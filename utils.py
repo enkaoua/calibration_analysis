@@ -178,13 +178,18 @@ def calculate_transform_average(r_lst, t_lst):
     return mean_he
 
 
-def find_best_intrinsics(intrinsics_pth, size_chess, camera):
+def find_best_intrinsics(intrinsics_pth, size_chess, camera, save_path=''):
     intrinsics_all_data = pd.read_pickle(f'{intrinsics_pth}/{size_chess}_{camera}_calibration_data.pkl')
     # find where average_error is smallest
     intrinsics_all_data = intrinsics_all_data[intrinsics_all_data.average_error == intrinsics_all_data.average_error.min()]
     errors_all = intrinsics_all_data['errors'].values[0]
     intrinsics = intrinsics_all_data['intrinsics'].values[0][errors_all.index(min(errors_all))]
     distortion = intrinsics_all_data['distortion'].values[0][errors_all.index(min(errors_all))]
+
+    if len(save_path)>0:
+        # save as txt file
+        np.savetxt(f'{save_path}/{size_chess}_{camera}_intrinsics.txt', intrinsics)
+        np.savetxt(f'{save_path}/{size_chess}_{camera}_distortion.txt', distortion)
 
     return intrinsics, distortion
 
