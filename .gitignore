@@ -1,2 +1,8 @@
-results/
+results/*/best_intrinsics
+results/*/best_intrinsics
+results/*/raw_corner_data/old*
+results/*/split_data/old*
+results/*/calibration_analysis/
+results/*/pose_analysis/*
+
 __pycache__/

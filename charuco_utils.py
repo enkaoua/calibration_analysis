@@ -13,7 +13,7 @@ import pandas as pd
 ######## HAND-EYE ##################################
 ######################################################
 
-def detect_charuco_board_pose_images( board, image_pths,intrinsics, distortion,return_corners=True, min_num_corners=6, waiting_time=0):
+def detect_charuco_board_pose_images( board, image_pths,intrinsics, distortion,return_corners=True, min_num_corners=6, waiting_time=0, visualise_corner_detection=False):
     """
     function to detect corners in a list of images given a board
     Parameters
@@ -80,7 +80,7 @@ def detect_charuco_board_pose_images( board, image_pths,intrinsics, distortion,r
         if ret<min_num_corners:
             updated_image_pths.remove(image_pth)
             cv2.imshow('charuco board', image)
-            print(f'skipping image {image_pth} because it has less than 6 corners')
+            #print(f'skipping image {image_pth} because it has less than 6 corners')
             continue
             
         # by this point, we have filtered out any images that don't have enough charuco board corners detected so we can move onto detecting the board pose
@@ -89,15 +89,16 @@ def detect_charuco_board_pose_images( board, image_pths,intrinsics, distortion,r
         retval, rvec, tvec = cv2.aruco.estimatePoseCharucoBoard(charuco_detected_corners, charuco_detected_ids, board, intrinsics, distortion, None, None)
 
         if retval:
-            #annotated_image = cv2.aruco.drawAxis(gray, intrinsics, distortion, rvec, tvec, 0.1)  # 0.1 is the length of the axis
-            # draw markers
-            annotated_image = cv2.aruco.drawDetectedCornersCharuco(undistorted_image, charuco_detected_corners, charuco_detected_ids)
-            # Draw the ChArUco board axis
-            annotated_image = cv2.drawFrameAxes(annotated_image, intrinsics, None, rvec, tvec, length=37)
-            # display annotated img
-            cv2.imshow('charuco board', annotated_image)
-            cv2.waitKey(waiting_time)
-            
+            if visualise_corner_detection:
+                #annotated_image = cv2.aruco.drawAxis(gray, intrinsics, distortion, rvec, tvec, 0.1)  # 0.1 is the length of the axis
+                # draw markers
+                annotated_image = cv2.aruco.drawDetectedCornersCharuco(undistorted_image, charuco_detected_corners, charuco_detected_ids)
+                # Draw the ChArUco board axis
+                annotated_image = cv2.drawFrameAxes(annotated_image, intrinsics, None, rvec, tvec, length=37)
+                # display annotated img
+                cv2.imshow('charuco board', annotated_image)
+                cv2.waitKey(waiting_time)
+                
             # add the detected charuco corners to the list of all charuco corners
             imgPoints.append(charuco_detected_corners)
             # find the corresponding 3D pnts
@@ -111,8 +112,9 @@ def detect_charuco_board_pose_images( board, image_pths,intrinsics, distortion,r
 
         else:
             updated_image_pths.remove(image_pth)
-            cv2.imshow('charuco board', image)
-            print(f'skipping image {image_pth} because pose was not detected properly')
+            if visualise_corner_detection:
+                cv2.imshow('charuco board', image)
+            #print(f'skipping image {image_pth} because pose was not detected properly')
             continue
 
         
@@ -170,7 +172,7 @@ def calculate_hand_eye_reprojection_error(hand_eye,world2realsense,objPoints, im
             undistorted_img_endo = cv2.undistort(endo_im, intrinsics_endo, distortion_endo)
             # calculate error
             error_np, error, annotated_image_endo_board = reprojection_error(img_points_endo_detected, proj_points_2d_endo, undistorted_img_endo)
-            print(error)
+            #print(error)
             cv2.imshow('charuco board', annotated_image_endo_board)
             cv2.waitKey(waitTime)
         else:
@@ -385,7 +387,7 @@ def perform_analysis(camera, size_chess, data_df, reprojection_data_df, repeats=
     all_intrinsics = []
     all_distortion = []
     std_error_lst = []
-    for num_images in num_images_lst:
+    for num_images in tqdm(num_images_lst, desc='num_images', leave=False):
         errors, intrinsics, distortion = analyse_calibration_data(data_df,
                              reprojection_data_df, # number of frames to use for calculating reprojection loss
                              n = num_images, # number of frames to use for calibration
@@ -489,7 +491,7 @@ def calculate_reprojection_error(mtx, dist, objPoints, imgPoints, image_pths=Non
     return reprojection_error_mean_final
 
 
-def detect_corners_charuco_cube_images( board, image_pths, min_num_corners=6, percentage_of_corners=0.2, waiting_time=0):
+def detect_corners_charuco_cube_images( board, image_pths, min_num_corners=6, percentage_of_corners=0.2, waiting_time=0, visualise_corner_detection=False):
     """
     function to detect corners in a list of images given a board
     Parameters
@@ -524,7 +526,7 @@ def detect_corners_charuco_cube_images( board, image_pths, min_num_corners=6, pe
         if min_num_corners<6:
             min_num_corners = 6
     # detect corners in images
-    for image_pth in image_pths:
+    for image_pth in tqdm(image_pths,desc='image paths', leave=False):
 
         image = cv2.imread(image_pth)
         # if image is None (currupt): remove it from the list of images
@@ -543,15 +545,17 @@ def detect_corners_charuco_cube_images( board, image_pths, min_num_corners=6, pe
         # if there are less than 6 points, remove img from paths and skip this image so we don't save it
         if ret<min_num_corners:
             updated_image_pths.remove(image_pth)
-            cv2.imshow('charuco board', image)
-            print(f'skipping image {image_pth} because it has less than 6 corners')
+            if visualise_corner_detection:
+                cv2.imshow('charuco board', image)
+            #print(f'skipping image {image_pth} because it has less than 6 corners')
             continue
             
         # by this point, we have filtered out any images that don't have enough charuco board corners detected so we can add them to the list of images to save
         # draw the detected corners on the image
-        cv2.aruco.drawDetectedCornersCharuco(image, charuco_detected_corners, charuco_detected_ids)
-        cv2.imshow('charuco board', image)
-        cv2.waitKey(waiting_time)
+        if visualise_corner_detection:
+            cv2.aruco.drawDetectedCornersCharuco(image, charuco_detected_corners, charuco_detected_ids)
+            cv2.imshow('charuco board', image)
+            cv2.waitKey(waiting_time)
         # add the detected charuco corners to the list of all charuco corners
         imgPoints.append(charuco_detected_corners)
         # find the corresponding 3D pnts

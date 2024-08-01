@@ -11,17 +11,17 @@ from utils import create_folders, filter_and_merge_hand_eye_df, find_best_intrin
 
 
 def generate_board_table(image_pths, board,table_data_pth,table_info_pth,  min_num_corners=6,percentage_of_corners=0.2, waiting_time=1, 
-                         intrinsics=None, distortion=None):
+                         intrinsics=None, distortion=None, visualise_corner_detection=False):
     """
     Generate a table of the chessboard corners in the world coordinate system.
     """
     
     if intrinsics is not None and distortion is not None:
         # this will also return board pose information (for hand-eye calibration)
-        updated_image_pths, min_corners, T, imgPoints, objPoints, ids =    detect_charuco_board_pose_images( board, image_pths,intrinsics, distortion,return_corners=True, min_num_corners=min_num_corners, waiting_time=waiting_time)
+        updated_image_pths, min_corners, T, imgPoints, objPoints, ids =    detect_charuco_board_pose_images( board, image_pths,intrinsics, distortion,return_corners=True, min_num_corners=min_num_corners, waiting_time=waiting_time, visualise_corner_detection=visualise_corner_detection)
     else:
         # for intrinsics calibration
-        updated_image_pths, imgPoints, objPoints, min_corners = detect_corners_charuco_cube_images( board, image_pths, min_num_corners=min_num_corners,percentage_of_corners=percentage_of_corners, waiting_time=waiting_time)
+        updated_image_pths, imgPoints, objPoints, min_corners = detect_corners_charuco_cube_images( board, image_pths, min_num_corners=min_num_corners,percentage_of_corners=percentage_of_corners, waiting_time=waiting_time, visualise_corner_detection=visualise_corner_detection)
 
     # convert updated image paths- split path to get: [image number, pose number, degree number, going forward or backward]
     # convert to pandas dataframe
@@ -54,32 +54,34 @@ def generate_board_table(image_pths, board,table_data_pth,table_info_pth,  min_n
 
 
 
-def main_hand_eye():
-    data_path = '/Users/aure/Documents/CARES/data/massive_calibration_data'
-    img_g_ext = 'png'
-    cameras = ['endo', 'realsense']
-    chess_sizes = [15,20, 25, 30]
-
+def main_hand_eye(data_path = '/Users/aure/Documents/CARES/data/massive_calibration_data',
+    img_g_ext = 'png',
+    cameras = ['endo', 'realsense'],
+    chess_sizes = [15,20, 25, 30],
+    visualise_corner_detection=False,
     # analysis parameters
-    reprojection_sample_size = 6
-    min_num_corners = None # if none selected, the percentage of corners is used (with min 6 corners)
-    percentage_of_corners = 0.2
-    repeats=1 # number of repeats per number of images analysis
-    num_images_start=1
-    num_images_end=2 
-    num_images_step=1
-    visualise_reprojection_error=False
-    waitTime = 0
+    reprojection_sample_size = 6,
+    min_num_corners = None, # if none selected, the percentage of corners is used (with min 6 corners)
+    percentage_of_corners = 0.2,
+    repeats=1, # number of repeats per number of images analysis
+    num_images_start=1,
+    num_images_end=2, 
+    num_images_step=1,
+    results_pth = 'results/intrinsics', 
+    intrinsics_results_pth='results/intrinsics',
+    visualise_reprojection_error=False,
+    waitTime = 0):
+    
 
     rec_data = f'MC_{min_num_corners}_PC_{percentage_of_corners}'
     rec_analysis = f'R{reprojection_sample_size}_N{num_images_start}_{num_images_end}_{num_images_step}_repeats_{repeats}'
 
-    table_pth = f'results/hand_eye/raw_corner_data/{rec_data}'
-    filtered_table_pth = f'results/hand_eye/split_data/{rec_data}'
-    analysis_results_pth = f'results/hand_eye/calibration_analysis/{rec_analysis}'
+    table_pth = f'{results_pth}/raw_corner_data/{rec_data}'
+    filtered_table_pth = f'{results_pth}/split_data/{rec_data}'
+    analysis_results_pth = f'{results_pth}/calibration_analysis/{rec_analysis}'
 
     create_folders([table_pth, filtered_table_pth, analysis_results_pth]) #, analysis_results_pth
-    intrinsics_pth = f'results/intrinsics/calibration_analysis/R1000_N5_50_2_repeats_50'
+    intrinsics_pth = f'{intrinsics_results_pth}/calibration_analysis/R1000_N5_50_2_repeats_50'
 
     ######## GENERATE TABLES ########
     for size_chess in chess_sizes:
@@ -103,7 +105,7 @@ def main_hand_eye():
             else:
                 data_df, info_df = generate_board_table(image_pths, board,table_data_pth,table_info_pth,  
                                  min_num_corners=min_num_corners,percentage_of_corners=percentage_of_corners, waiting_time=1, 
-                                 intrinsics=intrinsics, distortion=distortion )
+                                 intrinsics=intrinsics, distortion=distortion, visualise_corner_detection=visualise_corner_detection )
             print(f'table done for camera {camera}, size_chess {size_chess}')
     ##### H-E CALIBRATION AND ANALYSIS #####
     for size_chess in chess_sizes: 
@@ -151,36 +153,37 @@ def main_hand_eye():
 
 
 
-def main_intrinsics(): 
-    data_path = '/Users/aure/Documents/CARES/data/massive_calibration_data'
-    img_ext = 'png'
-    reprojection_sample_size = 100
-    min_num_corners = None # if none selected, the percentage of corners is used (with min 6 corners)
-    percentage_of_corners = 0.2
-
+def main_intrinsics(data_path = '/Users/aure/Documents/CARES/data/massive_calibration_data',
+    img_ext = 'png',
+    reprojection_sample_size = 100,
+    min_num_corners = None, # if none selected, the percentage of corners is used (with min 6 corners)
+    percentage_of_corners = 0.2,
+    visualise_corner_detection=False,
     # analysis parameters
-    repeats=3 # number of repeats per number of images analysis
-    num_images_start=1000
-    num_images_end=10001
-    num_images_step=1
-    visualise_reprojection_error=False
-    waitTime = 1
+    repeats=3, # number of repeats per number of images analysis
+    num_images_start=1000,
+    num_images_end=10001,
+    num_images_step=1,
+    visualise_reprojection_error=False,
+    waitTime = 1, 
+    results_pth = 'results/intrinsics', 
+    chess_sizes = [15, 20, 25, 30], # 15, 20, 25, 30,
+    cameras = ['endo', 'realsense'] ):
+    
 
     rec_data = f'MC_{min_num_corners}_PC_{percentage_of_corners}'
     rec_analysis = f'R{reprojection_sample_size}_N{num_images_start}_{num_images_end}_{num_images_step}_repeats_{repeats}'
 
-    table_pth = f'results/intrinsics/raw_corner_data/{rec_data}'
-    filtered_table_pth = f'results/intrinsics/split_data/{rec_data}'
-    analysis_results_pth = f'results/intrinsics/calibration_analysis/{rec_analysis}'
-    #analysis_results_pth = f'results/intrinsics/best_intrinsics/{rec_analysis}'
+    table_pth = f'{results_pth}/raw_corner_data/{rec_data}'
+    filtered_table_pth = f'{results_pth}/split_data/{rec_data}'
+    analysis_results_pth = f'{results_pth}/calibration_analysis/{rec_analysis}'
 
     create_folders([table_pth, filtered_table_pth, analysis_results_pth])
     
-    chess_sizes = [15, 20, 25, 30] # 15, 20, 25, 30
-    cameras = ['endo', 'realsense'] # 'endo', 'realsense'
-    for camera in cameras:
+
+    for camera in tqdm(cameras, desc='cameras'):
         #plt.figure()
-        for size_chess in chess_sizes:
+        for size_chess in tqdm(chess_sizes, desc='chess_sizes', leave=True):
             # path where to save tables of board data ['paths', 'imgPoints', 'objPoints', 'chess_size', 'pose', 'deg','direction', 'frame_number']
             table_data_pth = f'{table_pth}/{size_chess}_{camera}_corner_data.pkl'
             # path where to save info about the board data (original number of images, number of images with corners, number of corners detected)
@@ -202,7 +205,7 @@ def main_intrinsics():
                 data_df = pd.read_pickle(table_data_pth)
                 info_df = pd.read_csv(table_info_pth)
             else:
-                data_df, info_df = generate_board_table(image_pths,board,table_data_pth, table_info_pth, min_num_corners=min_num_corners,percentage_of_corners=percentage_of_corners, waiting_time=1)
+                data_df, info_df = generate_board_table(image_pths,board,table_data_pth, table_info_pth, min_num_corners=min_num_corners,percentage_of_corners=percentage_of_corners, waiting_time=1, visualise_corner_detection=False)
             
             # split the data into reprojection and calibration
             if os.path.isfile(filtered_reprojection_dataset_pth) and os.path.isfile(filtered_calibration_dataset_pth):
