@@ -1,3 +1,4 @@
+import argparse
 import glob
 import itertools
 import os
@@ -73,22 +74,22 @@ def visualise_poses(merged = True):
     
     return 
 
-def main(): 
-    size_chess = 30
-    num_images = 50
-    poses = [ 0,1,2,3,4,5,6,7,8]
-    angles = [ 0,1,2,3,4,5,6,7,8,9,10]
-    
-    combos = [(0,1), (0,2)]
-    camera = 'endo' 
-    data_pth = f'/Users/aure/Documents/CARES/code/charuco_calibration_analysis/results/intrinsics/split_data/MC_None_PC_0.2'
-    img_ext = 'png'
+def main_pose_analysis(
+    size_chess = 30,
+    num_images = 50,
+    poses = [ 0,1,2,3,4,5,6,7,8],
+    angles = [ 0,1,2,3,4,5,6,7,8,9,10],    
+    camera = 'endo' ,
+    data_pth = f'/Users/aure/Documents/CARES/code/charuco_calibration_analysis/results/intrinsics/split_data/MC_None_PC_0.2',
+    #img_ext = 'png',
     # load data
     #data = pd.read_pickle(data_pth)
 
-    all_image_data_path = '/Users/aure/Documents/CARES/data/massive_calibration_data'
-    image_pths = glob.glob(f'{all_image_data_path}/{size_chess}_charuco/pose*/acc_{size_chess}_pos*_deg*_*/raw/he_calibration_images/hand_eye_{camera}/*.{img_ext}')
+    #all_image_data_path = '/Users/aure/Documents/CARES/data/massive_calibration_data',
 
+): 
+    
+    #image_pths = glob.glob(f'{all_image_data_path}/{size_chess}_charuco/pose*/acc_{size_chess}_pos*_deg*_*/raw/he_calibration_images/hand_eye_{camera}/*.{img_ext}'),
 
     # pth of data to perform calibration
     data_for_calibration = pd.read_pickle(f'{data_pth}/{size_chess}_endo_corner_data_calibration_dataset.pkl')
@@ -200,5 +201,24 @@ def main():
 
 
 if __name__=='__main__': 
-    main() 
+
+    parser = argparse.ArgumentParser(
+        description='pose analysis ')   
+    
+    parser.add_argument('--size_chess', type=int, default=30, help='size of chessboard used for calibration')
+    parser.add_argument('--num_images', type=int, default=50, help='number of images to start analysis')
+    parser.add_argument('--poses', type=list, default=[ 0,1,2,3,4,5,6,7,8], help='poses to analyse')
+    parser.add_argument('--angles', type=list, default=[ 0,1,2,3,4,5,6,7,8,9,10], help='angles to analyse')
+    parser.add_argument('--camera', type=str, default='endo', help='camera to analyse')
+    parser.add_argument('--data_pth', type=str, default='results/intrinsics/split_data/MC_None_PC_0.2', help='path to save results')
+
+    args = parser.parse_args()
+    main_pose_analysis(
+        size_chess = args.size_chess,
+        num_images = args.num_images,
+        poses = args.poses,
+        angles = args.angles,
+        camera = args.camera,
+        data_pth = args.data_pth
+    )
     #visualise_poses(    merged = True)
