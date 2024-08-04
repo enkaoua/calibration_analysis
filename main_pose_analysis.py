@@ -81,6 +81,8 @@ def main_pose_analysis(
     angles = [ 0,1,2,3,4,5,6,7,8,9,10],    
     camera = 'endo' ,
     data_pth = f'/Users/aure/Documents/CARES/code/charuco_calibration_analysis/results/intrinsics/split_data/MC_None_PC_0.2',
+    calibration_analysis_results_save_pth = f'/Users/aure/Documents/CARES/code/charuco_calibration_analysis/results/intrinsics/pose_analysis/'
+
     #img_ext = 'png',
     # load data
     #data = pd.read_pickle(data_pth)
@@ -101,7 +103,6 @@ def main_pose_analysis(
     num_images_step = 1
     visualise_reprojection_error = False
     waitTime = 0
-    calibration_analysis_results_save_pth = f'/Users/aure/Documents/CARES/code/charuco_calibration_analysis/results/intrinsics/pose_analysis/'
     # create calibration_analysis_results_save_pth if it does not exist
     if not os.path.exists(calibration_analysis_results_save_pth):
         os.makedirs(calibration_analysis_results_save_pth)
@@ -211,7 +212,7 @@ if __name__=='__main__':
     parser.add_argument('--angles', type=list, default=[ 0,1,2,3,4,5,6,7,8,9,10], help='angles to analyse')
     parser.add_argument('--camera', type=str, default='endo', help='camera to analyse')
     parser.add_argument('--data_pth', type=str, default='results/intrinsics/split_data/MC_None_PC_0.2', help='path to save results')
-
+    parser.add_argument('--calibration_analysis_results_save_pth', type=str, default='results/intrinsics/pose_analysis/', help='path to save results')
     args = parser.parse_args()
     main_pose_analysis(
         size_chess = args.size_chess,
@@ -219,6 +220,8 @@ if __name__=='__main__':
         poses = args.poses,
         angles = args.angles,
         camera = args.camera,
-        data_pth = args.data_pth
+        data_pth = args.data_pth,
+        calibration_analysis_results_save_pth = args.calibration_analysis_results_save_pth
+
     )
     #visualise_poses(    merged = True)
