@@ -299,12 +299,13 @@ def analyse_calibration_data(board_data,
         imgPoints = calibration_data.imgPoints.values
         objPoints = calibration_data.objPoints.values
         # load one of the images to get the shape of the image
-        image = cv2.imread(calibration_data.paths.values[0])
+        image_shape = (1080, 1920)
+        """ image = cv2.imread(calibration_data.paths.values[0])
         # check if image is None
         if image is None:
             image_shape = (1080, 1920)
         else:
-            image_shape = image.shape[0:-1]
+            image_shape = image.shape[0:-1] """
 
 
         mtx, dist = calibrate_charuco_board( 
