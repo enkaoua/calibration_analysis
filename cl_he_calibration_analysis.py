@@ -33,31 +33,6 @@ def main():
     add_recording_args_to_parser(parser)
     
     args = parser.parse_args()
-
-    """     if len(args.config_path) > 0:
-        #config = configparser.ConfigParser()
-        #config.read(args.config_path)
-
-        #endo_save_path, realsense_save_path, endo_port, _, record_all_frames = load_recording_config(config)
-
-        data_path = '/Users/aure/Documents/CARES/data/massive_calibration_data',
-        img_ext = 'png',
-        reprojection_sample_size = 100,
-        min_num_corners = None, # if none selected, the percentage of corners is used (with min 6 corners)
-        percentage_of_corners = 0.2,
-
-        # analysis parameters
-        repeats=3, # number of repeats per number of images analysis
-        num_images_start=1000,
-        num_images_end=10001,
-        num_images_step=1,
-        visualise_reprojection_error=False,
-        waitTime = 1, 
-        results_pth = 'results/intrinsics', 
-        chess_sizes = [15, 20, 25, 30], # 15, 20, 25, 30,
-        cameras = ['endo', 'realsense'] """
-    #else:
-    args = parser.parse_args()
     data_path = args.data_path
     img_ext = args.img_ext
     reprojection_sample_size = int(args.reprojection_sample_size)

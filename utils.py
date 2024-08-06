@@ -124,7 +124,9 @@ def sample_dataset(df, total_samples=100):
 
 
 def create_folders(folders):
-
+    """
+    creates specified folders if they dont exist
+    """
     for folder in folders:
         if not os.path.isdir(f'{folder}'):
             os.makedirs(f'{folder}')
@@ -239,3 +241,22 @@ def filter_and_merge_hand_eye_df(data_df_endo, data_df_realsense, info_df_endo):
             data_df_combined.at[row_idx, 'ids_endo'] = img_ids
             data_df_combined.at[row_idx, 'ids_rs'] = obj_ids
     return data_df_combined
+
+
+def select_min_num_corners(min_num_corners, percentage_of_corners,num_chess_corners):
+    
+    # None for both, min num corners as 0
+    if min_num_corners is None and percentage_of_corners is None:
+        min_num_corners = 1
+    # only percentage of corners specified, we take percentage_of_corners
+    elif min_num_corners is None and percentage_of_corners is not None:
+        min_num_corners = int(percentage_of_corners*num_chess_corners)
+    # Only min_num_corners specified
+    elif min_num_corners is not None and percentage_of_corners is None:
+        pass
+    # both specified- we take whatever is largest
+    else:
+        min_num_corners_by_percentage = int(percentage_of_corners*num_chess_corners)
+        if min_num_corners_by_percentage>min_num_corners:
+            min_num_corners = min_num_corners_by_percentage
+    return min_num_corners

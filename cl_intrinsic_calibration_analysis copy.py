@@ -7,8 +7,8 @@ def add_recording_args_to_parser(parser):
     parser.add_argument('--data_path', type=str, default='/Users/aure/Documents/CARES/data/massive_calibration_data', help='path to where images uesd for calibration are stored')
     parser.add_argument('--img_ext', type=str, default='png', help='extension of images')
     parser.add_argument('--reprojection_sample_size', type=int, default=100, help='number of samples to use for reprojection error')
-    parser.add_argument('--min_num_corners', type=str, default=None, help='minimum number of corners to use for calibration')
-    parser.add_argument('--percentage_of_corners', type=float, default=0.2, help='percentage of corners to use for calibration')
+    parser.add_argument('--min_num_corners', type=str, default=6, help='minimum number of corners to use for calibration')
+    parser.add_argument('--percentage_of_corners', type=str, default=0.2, help='percentage of corners to use for calibration')
     parser.add_argument('--visualise_corner_detection', type=bool, default=False, help='if set to true, will visualise corner detection')
     parser.add_argument('--repeats', type=int, default=3, help='number of repeats per number of images analysis')
     parser.add_argument('--num_images_start', type=int, default=5, help='number of images to start analysis')
@@ -25,39 +25,24 @@ def add_recording_args_to_parser(parser):
 def main(): 
 
     parser = argparse.ArgumentParser(
-        description='recording realsense and endoscope (images or video) \
-            When in image mode, press "c" to capture image, "q" or esc to quit. \
-            You can either add a config path containing a json file with all the \
-            arguments or you can enter the arguments directly in the command line. \
-                If you do both, the command line arguments will be used. ')   
-    add_recording_args_to_parser(parser)
+        description='intrinsic calibration analysis code \
+            Code has several steps: \
+            1) goes through images to detect corners as specified and generates large table with information such as corner location, frame number etc\
+               Data will be saved in folder raw_corner_data \
+            2) Once table is generated, the data is split into reprojection dataset and calibration dataset. \
+               Data will be saved in folder split_data \
+               The fildered data and original data table will be stored under their respective folders, but within that \
+               respective folder, the name will be in the format MC_x_PC_x (MC- min num of corners, PC- percentage of corners)\
+            3) Finally, analysis is done. The analysis is done by performing calibration on a set of images between num_images_start and num_images_end at step of num_images_step. Each of these calibrations on N images is performed repeats number of times.\
+            The analysis will be saved under calibration_analysis with the format R{reprojection_sample_size}_N{start}_{end}_{step}_repeats_{repeats}\
+            \
+            ')   
     
+    # adding all necessary args for cl app
+    add_recording_args_to_parser(parser)
+    # grabbing args selected
     args = parser.parse_args()
 
-    """     if len(args.config_path) > 0:
-        #config = configparser.ConfigParser()
-        #config.read(args.config_path)
-
-        #endo_save_path, realsense_save_path, endo_port, _, record_all_frames = load_recording_config(config)
-
-        data_path = '/Users/aure/Documents/CARES/data/massive_calibration_data',
-        img_ext = 'png',
-        reprojection_sample_size = 100,
-        min_num_corners = None, # if none selected, the percentage of corners is used (with min 6 corners)
-        percentage_of_corners = 0.2,
-
-        # analysis parameters
-        repeats=3, # number of repeats per number of images analysis
-        num_images_start=1000,
-        num_images_end=10001,
-        num_images_step=1,
-        visualise_reprojection_error=False,
-        waitTime = 1, 
-        results_pth = 'results/intrinsics', 
-        chess_sizes = [15, 20, 25, 30], # 15, 20, 25, 30,
-        cameras = ['endo', 'realsense'] """
-    #else:
-    args = parser.parse_args()
     data_path = args.data_path
     img_ext = args.img_ext
     reprojection_sample_size = int(args.reprojection_sample_size)
@@ -66,10 +51,11 @@ def main():
     if min_num_corners is not None:
         min_num_corners = int(min_num_corners)
     
+    percentage_of_corners = args.percentage_of_corners
+    # convert string to float or none
+    if min_num_corners is not None:
+        min_num_corners = float(min_num_corners)
 
-
-
-    percentage_of_corners = float(args.percentage_of_corners)
     visualise_corner_detection = bool(args.visualise_corner_detection)
     repeats = int(args.repeats)
     num_images_start = int(args.num_images_start)
