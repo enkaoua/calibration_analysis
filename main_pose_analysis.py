@@ -81,33 +81,23 @@ def main_pose_analysis(
     angles = [ 0,1,2,3,4,5,6,7,8,9,10],    
     camera = 'endo' ,
     data_pth = f'/Users/aure/Documents/CARES/code/charuco_calibration_analysis/results/intrinsics/split_data/MC_None_PC_0.2',
-    calibration_analysis_results_save_pth = f'/Users/aure/Documents/CARES/code/charuco_calibration_analysis/results/intrinsics/pose_analysis/'
-
-    #img_ext = 'png',
-    # load data
-    #data = pd.read_pickle(data_pth)
-
-    #all_image_data_path = '/Users/aure/Documents/CARES/data/massive_calibration_data',
-
+    calibration_analysis_results_save_pth = f'/Users/aure/Documents/CARES/code/charuco_calibration_analysis/results/intrinsics/pose_analysis/',
+    repeats = 1,
+    visualise_reprojection_error = False,
+    waitTime = 0
 ): 
     
-    #image_pths = glob.glob(f'{all_image_data_path}/{size_chess}_charuco/pose*/acc_{size_chess}_pos*_deg*_*/raw/he_calibration_images/hand_eye_{camera}/*.{img_ext}'),
 
     # pth of data to perform calibration
     data_for_calibration = pd.read_pickle(f'{data_pth}/{size_chess}_endo_corner_data_calibration_dataset.pkl')
     data_for_reprojection = pd.read_pickle(f'{data_pth}/{size_chess}_endo_corner_data_reprojection_dataset.pkl')
 
-    repeats = 1
-    num_images_start = num_images
-    #num_images_end = num_images+1
     num_images_step = 1
-    visualise_reprojection_error = False
-    waitTime = 0
+
     # create calibration_analysis_results_save_pth if it does not exist
     if not os.path.exists(calibration_analysis_results_save_pth):
         os.makedirs(calibration_analysis_results_save_pth)
 
-    #results_save_name = calibration_analysis_results_save_pth + f'R{len(data_for_reprojection)}N{num_images_start}_{num_images_end}_{num_images_step}_repeats_{repeats}.pkl'
     total_run_time_start = time.time()
     results_all = pd.DataFrame()
     simple_results = []
@@ -132,9 +122,6 @@ def main_pose_analysis(
                         (data_for_calibration['deg'].isin(angle))
                         ]
 
-                    # filter out pose from calibration data
-                    #filtered_calibration_data = data_for_calibration[data_for_calibration['pose']!=pose]
-
                     if len(filtered_calibration_data)<num_images_start:
                         num_images_start=len(filtered_calibration_data)
                         #print(f'reducing sample size to {len(filtered_calibration_data)} as that is max images in this filtered data')
@@ -142,7 +129,7 @@ def main_pose_analysis(
                         #print(f'angle {angle}, pose {pose} is empty')
                         continue
                     # calculate reprojection error
-                    results = perform_analysis(camera, size_chess, 
+                    results = perform_analysis(camera,  
                                                 filtered_calibration_data,data_for_reprojection, repeats=repeats, 
                                                 num_images_start=num_images_start, num_images_end=num_images_start+1, num_images_step=num_images_step,
                                                 visualise_reprojection_error=visualise_reprojection_error, waitTime=waitTime,
@@ -213,6 +200,9 @@ if __name__=='__main__':
     parser.add_argument('--camera', type=str, default='endo', help='camera to analyse')
     parser.add_argument('--data_pth', type=str, default='results/intrinsics/split_data/MC_None_PC_0.2', help='path to save results')
     parser.add_argument('--calibration_analysis_results_save_pth', type=str, default='results/intrinsics/pose_analysis/', help='path to save results')
+    parser.add_argument('--repeats', type=int, default=1, help='number of repeats per number of images analysis')
+    parser.add_argument('--visualise_reprojection_error', type=bool, default=False, help='if set to true, will visualise reprojection error')
+    parser.add_argument('--waitTime', type=int, default=0, help='time to wait before capturing next image')
     args = parser.parse_args()
     main_pose_analysis(
         size_chess = args.size_chess,
@@ -221,7 +211,10 @@ if __name__=='__main__':
         angles = args.angles,
         camera = args.camera,
         data_pth = args.data_pth,
-        calibration_analysis_results_save_pth = args.calibration_analysis_results_save_pth
-
+        calibration_analysis_results_save_pth = args.calibration_analysis_results_save_pth,
+        repeats = args.repeats,
+        visualise_reprojection_error = args.visualise_reprojection_error,
+        waitTime = args.waitTime
     )
-    #visualise_poses(    merged = True)
+
+
