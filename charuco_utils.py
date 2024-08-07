@@ -279,7 +279,8 @@ def analyse_calibration_data(board_data,
     intrinsics = []
     distortion = []
     errors = []
-    for i in range(repeats):
+    num_corners_detected = []
+    for i in tqdm(range(repeats), desc='repeats', leave=False):  
         # sample from calibration dataset however many number of samples we're investigating
         calibration_data, _  = sample_dataset(board_data, total_samples=n)
         # use all reprojection dataset
@@ -288,6 +289,8 @@ def analyse_calibration_data(board_data,
         # select contents of object points and image points
         imgPoints = calibration_data.imgPoints.values
         objPoints = calibration_data.objPoints.values
+        # number od corners detected
+        num_corners_detected.append(  calibration_data['num_detected_corners'].sum()  )
         # load one of the images to get the shape of the image
         image_shape = (1080, 1920)
         """ image = cv2.imread(calibration_data.paths.values[0])
@@ -364,7 +367,7 @@ def analyse_calibration_data(board_data,
                                                                 image_pths=img_paths_for_calibration_rs, capture_all=False )
     
     """
-    return errors, intrinsics, distortion
+    return errors, intrinsics, distortion, num_corners_detected
 
 def perform_analysis(camera, data_df, reprojection_data_df, repeats=1000, num_images_start=5, num_images_end=60, num_images_step=2, 
                      visualise_reprojection_error=False, waitTime=1, results_pth='' ): #, info_df,board,image_pths
@@ -398,8 +401,9 @@ def perform_analysis(camera, data_df, reprojection_data_df, repeats=1000, num_im
     all_intrinsics = []
     all_distortion = []
     std_error_lst = []
+    num_corners_detected_lst = []
     for num_images in tqdm(num_images_lst, desc='num_images', leave=False):
-        errors, intrinsics, distortion = analyse_calibration_data(data_df,
+        errors, intrinsics, distortion, num_corners_detected = analyse_calibration_data(data_df,
                              reprojection_data_df, # number of frames to use for calculating reprojection loss
                              n = num_images, # number of frames to use for calibration
                              repeats = repeats, # number of repeats for the calibration
@@ -419,10 +423,11 @@ def perform_analysis(camera, data_df, reprojection_data_df, repeats=1000, num_im
         std_error_lst.append(np.std(errors_filtered))
         all_intrinsics.append(intrinsics)
         all_distortion.append(distortion)
+        num_corners_detected_lst.append(num_corners_detected)
 
     
     # save intrinsics, distortion and errors
-    results = {'num_images_lst':num_images_lst, 'errors':error_lst, 'intrinsics':all_intrinsics,'distortion':all_distortion,  'average_error':average_error_lst, 'std_error':std_error_lst}
+    results = {'num_images_lst':num_images_lst, 'errors_lst':error_lst, 'num_corners_detected_lst':num_corners_detected_lst, 'intrinsics':all_intrinsics,'distortion':all_distortion,  'average_error':average_error_lst, 'std_error':std_error_lst}
     results_df = pd.DataFrame(data=results)
     
     # save dataframe
