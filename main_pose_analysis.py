@@ -9,7 +9,8 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 from tqdm.auto import tqdm 
-
+import concurrent.futures
+import multiprocessing
 from charuco_utils import generate_charuco_board, perform_analysis
 
 def T_to_xyz(data, extension):
@@ -76,7 +77,41 @@ def visualise_poses(merged = True):
     return 
 
 
+def process_angle_combinations(num_images_start,data_for_calibration, pose,angle, camera, data_for_reprojection, repeats, num_images_step,visualise_reprojection_error, waitTime, num_poses, num_angles, results_iteration, reprojection_errors  ):
+    #for angle in tqdm(angle_combinations, desc='Angle Combinations', leave=False):
+    import warnings
+    warnings.filterwarnings("error")            
+    #num_images_start = num_images
 
+    # filter out whatever is not the current pose and angle
+    filtered_calibration_data = data_for_calibration[
+        (data_for_calibration['pose'].isin(pose)) &
+        (data_for_calibration['deg'].isin(angle))
+        ]
+    # if we have less than the number of images specified (eg 50, take that as the new start)
+    if len(filtered_calibration_data)<num_images_start:
+        num_images_start=len(filtered_calibration_data)
+        #print(f'reducing sample size to {len(filtered_calibration_data)} as that is max images in this filtered data')
+    # ignore iteration if there's no data corresponding to requirement
+    if len(filtered_calibration_data)!=0:
+        #print(f'angle {angle}, pose {pose} is empty')
+        # calculate reprojection error
+        results = perform_analysis(camera,  
+                                    filtered_calibration_data,data_for_reprojection, repeats=repeats, 
+                                    num_images_start=num_images_start, num_images_end=num_images_start+1, num_images_step=num_images_step,
+                                    visualise_reprojection_error=visualise_reprojection_error, waitTime=waitTime,
+                                    results_pth = '')
+        
+        #results['filter_pose'] = pose
+        # results['filter_angle'] = angle
+        results['num_poses'] = num_poses
+        results['num_angles'] = num_angles
+        results['sample size'] = num_images_start
+        #results_iteration = pd.concat([results_iteration, results], axis=0)
+
+        results_iteration.append(results)
+        reprojection_errors.append(results['average_error'])
+        #return results
  
 
 def main_pose_analysis(
@@ -114,10 +149,12 @@ def main_pose_analysis(
             reprojection_errors = []
             pose_combinations = list(itertools.combinations(poses, num_poses))
             angle_combinations = list(itertools.combinations(angles, num_angles))
-            results_iteration = pd.DataFrame()
+            results_iteration = []
             # for each combination of poses and angles filter out the data and calculate error 
             for pose in tqdm(pose_combinations, desc='Pose Combinations', leave=False):
-                for angle in tqdm(angle_combinations, desc='Angle Combinations', leave=False):
+                
+                
+                """ for angle in tqdm(angle_combinations, desc='Angle Combinations', leave=False):
                 
                     num_images_start = num_images
 
@@ -146,11 +183,43 @@ def main_pose_analysis(
                     results['num_poses'] = num_poses
                     results['num_angles'] = num_angles
                     results['sample size'] = num_images_start
-                    results_iteration = pd.concat([results_iteration, results], axis=0)
-
+                    #results_iteration = pd.concat([results_iteration, results], axis=0)
+                    results_iteration.append(results)
 
                     reprojection_errors.append(results['average_error'])
-
+                 """
+                
+                
+                """
+            
+                processes = []
+                for angle in angle_combinations:
+                    p = multiprocessing.Process(target=process_angle_combinations, args=(num_images,data_for_calibration, pose,angle, camera, data_for_reprojection, repeats, num_images_step,visualise_reprojection_error, waitTime, num_poses, num_angles, results_iteration, reprojection_errors))
+                    p.start()
+                    processes.append(p)
+                for process in processes:
+                    process.join()
+                    """
+                #manager = multiprocessing.Manager()
+                #results_iteration = manager.list(results_iteration)
+                #reprojection_errors = manager.list(reprojection_errors)
+                processes = []
+                for angle in angle_combinations:
+                    """ p = multiprocessing.Process(
+                        target = process_angle_combinations,
+                        args = (num_images,data_for_calibration, pose,angle, camera, data_for_reprojection, repeats, num_images_step,visualise_reprojection_error, waitTime, num_poses, num_angles, results_iteration, reprojection_errors)
+                    )
+                    processes.append(p)
+                    p.start() """
+                    
+                    """ for p in processes:
+                        p.join() """
+                
+                    process_angle_combinations(num_images,data_for_calibration, pose,angle, camera, data_for_reprojection, repeats, num_images_step,visualise_reprojection_error, waitTime, num_poses, num_angles, results_iteration, reprojection_errors  )
+                
+                # Convert shared lists back to normal lists
+                #results_iteration[:] = list(shared_results_iteration)
+                #reprojection_errors[:] = list(shared_reprojection_errors)
             # Calculate the overall mean reprojection error for the current combination
             overall_mean_error = np.mean(reprojection_errors)
             # Append results
@@ -159,14 +228,12 @@ def main_pose_analysis(
                 'num_angles': num_angles,
                 'mean_reprojection_error': overall_mean_error
             })
-            """ simple_results= pd.DataFrame({
-                'num_poses': num_poses,
-                'num_angles': num_angles,
-                'mean_reprojection_error': overall_mean_error
-            }) """
 
+
+            # 
+            results_combined = pd.concat(results_iteration, axis=0)
             # save results for this pose and angle
-            results_iteration.to_pickle(f'{calibration_analysis_results_save_pth}/results_P{num_poses}_A{num_angles}.pkl')
+            results_combined.to_pickle(f'{calibration_analysis_results_save_pth}/results_P{num_poses}_A{num_angles}.pkl')
             #simple_results.to_pickle(f'{calibration_analysis_results_save_pth}/simple_results_P{num_poses}_A{num_angles}.pkl')
 
     

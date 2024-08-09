@@ -1,3 +1,4 @@
+import multiprocessing
 import random
 import cv2
 import numpy as np
@@ -257,7 +258,7 @@ def perform_hand_eye_calibration_analysis(data_df, reprojection_data_df, intrins
 ######## INTRINSICS ##################################
 ######################################################
 
-def single_intrinsic_reprojection_error(board_data,n,R, intrinsics_initial_guess_pth, image_shape, visualise_reprojection_error, waitTime):
+def calibrate_and_evaluate(board_data,n,R, intrinsics_initial_guess_pth, image_shape, visualise_reprojection_error, waitTime, num_corners_detected, intrinsics, distortion, errors):
     # sample from calibration dataset however many number of samples we're investigating
     calibration_data, _  = sample_dataset(board_data, total_samples=n)
     # use all reprojection dataset
@@ -286,7 +287,11 @@ def single_intrinsic_reprojection_error(board_data,n,R, intrinsics_initial_guess
     else: 
         image_paths = None
     err = calculate_reprojection_error(mtx, dist, objPoints_reprojection, imgPoints_reprojection, image_pths=image_paths, waitTime=waitTime)
-    return mtx, dist, err, calibration_data
+    num_corners_detected.append(  calibration_data['num_detected_corners'].sum()  )
+    intrinsics.append(mtx)
+    distortion.append(dist)
+    errors.append(err)
+    #return mtx, dist, err, calibration_data
 
 def analyse_calibration_data(board_data, 
                              R, # reprojection df
@@ -306,18 +311,29 @@ def analyse_calibration_data(board_data,
     #path_to_rs_images = glob.glob(f'{data_path}/{size_chess}_charuco/pose*/acc_*_pos*_deg*_*/raw/he_calibration_images/hand_eye_realsense/*.{img_ext}')
     # where to save information of aruco board
     #charuco_board_save_pth = f'{data_path}/{size_chess}_charuco'
+    """ manager = multiprocessing.Manager()
+    intrinsics = manager.list([])
+    distortion = manager.list([])
+    errors = manager.list([])
+    num_corners_detected = manager.list([]) """
     intrinsics = []
     distortion = []
-    errors = []
+    errors =[]
     num_corners_detected = []
     # load one of the images to get the shape of the image
+    
+    #processes = []
     for i in tqdm(range(repeats), desc='repeats', leave=False):  
-        mtx, dist, err, calibration_data = single_intrinsic_reprojection_error(board_data,n,R, intrinsics_initial_guess_pth, image_shape, visualise_reprojection_error, waitTime)
+        """ p = multiprocessing.Process(target = calibrate_and_evaluate, args=(board_data,n,R, intrinsics_initial_guess_pth, image_shape, visualise_reprojection_error, waitTime, num_corners_detected, intrinsics, distortion, errors))
+        p.start()
+        processes.append(p) """
+        calibrate_and_evaluate(board_data,n,R, intrinsics_initial_guess_pth, image_shape, visualise_reprojection_error, waitTime,  num_corners_detected, intrinsics, distortion, errors)
         # number od corners detected
-        num_corners_detected.append(  calibration_data['num_detected_corners'].sum()  )
-        intrinsics.append(mtx)
-        distortion.append(dist)
-        errors.append(err)
+    
+    """ for p in processes:
+        p.join() """
+        
+
 
 
     
