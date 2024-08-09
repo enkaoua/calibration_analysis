@@ -233,7 +233,7 @@ def main_pose_analysis(
             # 
             results_combined = pd.concat(results_iteration, axis=0)
             # save results for this pose and angle
-            results_combined.to_pickle(f'{calibration_analysis_results_save_pth}/results_P{num_poses}_A{num_angles}.pkl')
+            results_combined.to_pickle(f'{calibration_analysis_results_save_pth}/testing_multiprocessing/results_P{num_poses}_A{num_angles}.pkl')
             #simple_results.to_pickle(f'{calibration_analysis_results_save_pth}/simple_results_P{num_poses}_A{num_angles}.pkl')
 
     
@@ -252,7 +252,7 @@ def main_pose_analysis(
     plt.title('Mean Reprojection Error by Number of Poses and Angles')
     plt.xlabel('Number of Angles')
     plt.ylabel('Number of Poses')
-    plt.show()
+    plt.savefig(f'{calibration_analysis_results_save_pth}/heatmap.png')
 
     # save results
     #results_all.to_pickle(f'{calibration_analysis_results_save_pth}/results.pkl')
@@ -282,8 +282,8 @@ if __name__=='__main__':
     
     parser.add_argument('--size_chess', type=int, default=30, help='size of chessboard used for calibration')
     parser.add_argument('--num_images', type=int, default=50, help='number of images to start analysis')
-    parser.add_argument('--poses', type=list, default=[ 0,1], help='poses to analyse')
-    parser.add_argument('--angles', type=list, default=[ 0,1], help='angles to analyse')
+    parser.add_argument('--poses', type=list, default=[ 0,1,2,3,4,5,6,7,8], help='poses to analyse')
+    parser.add_argument('--angles', type=list, default=[ 0,1,2,3,4,5,6,7,8,9,10], help='angles to analyse')
     parser.add_argument('--camera', type=str, default='endo', help='camera to analyse')
     parser.add_argument('--data_pth', type=str, default='results/intrinsics/split_data/MC_6.0_PC_0.5', help='path to where data is found')
     parser.add_argument('--calibration_analysis_results_save_pth', type=str, default='results/intrinsics/pose_analysis/', help='path to save results')
