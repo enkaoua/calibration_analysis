@@ -31,10 +31,12 @@ def get_average_std(data, threshold=100):
     std_lst = []
     Q1_lst = []
     Q3_lst = []
+    if threshold is None:
+        threshold = np.median(np.array(data))
     for errors in data:
         errors_np = np.array(errors)
+    
         e = errors_np[errors_np<threshold]
-
         if e.size == 0:
             avg_lst.append(threshold)
             std_lst.append(threshold)
@@ -45,44 +47,47 @@ def get_average_std(data, threshold=100):
         std_lst.append(np.std(e))
         Q1_lst.append( np.percentile(e, 25) )
         Q3_lst.append( np.percentile(e, 75) )
-    """     data_np = np.array(data)
-    avg_lst = np.mean(data_np, axis=1)
-    std_lst = np.std(data_np, axis=1) """
+
     return np.array(avg_lst), np.array(std_lst), Q1_lst, Q3_lst
     
 
-def plot_with_shaded_error(num_images_lst, data_dict, label, fmt, alpha=0.3, start_val=0, threshold=50, param_to_plot='errors'):
+def plot_with_shaded_error(num_images_lst, data_dict, label, fmt, alpha=0.3, start_val=0, threshold=50, param_to_plot='errors_lst'):
     #avg_error = data_dict['average_error'][start_val:]
     #std_error = data_dict['std_error'][start_val:]
-    if param_to_plot=='errors':
+    if param_to_plot=='errors_lst':
         errors = data_dict[param_to_plot][start_val:]
-        #print(param_to_plot)
-        #print(errors[0])
-        #avg_error = np.mean(errors, axis=1)
-        #std_error = np.std(errors, axis=1)
+        
         avg_error,std_error, Q1, Q3= get_average_std(errors, threshold=threshold)
         plt.plot(num_images_lst, avg_error, label=label, marker=fmt)
         plt.fill_between(num_images_lst, Q1, Q3, alpha=alpha)
         plt.plot(num_images_lst, Q1, color=plt.gca().lines[-1].get_color(), linestyle='--', alpha=1)
         plt.plot(num_images_lst, Q3, color=plt.gca().lines[-1].get_color(), linestyle='--', alpha=1)
     else:
-        intrinsics = data_dict[param_to_plot][start_val:]
+        intrinsics = data_dict['intrinsics'][start_val:]
         # splot intrinsics into fx, fy, cx, cy
-        fx_lst = []
-        fy_lst = []
-        cx_lst = []
-        cy_lst = []
+        param_lst = []
         for intrinsics_i in intrinsics:
-            fx_lst.append(intrinsics_i[0])
-            fy_lst.append(intrinsics_i[1])
-            cx_lst.append(intrinsics_i[2])
-            cy_lst.append(intrinsics_i[3])
+            param_rep_lst = []
+            for repeat in intrinsics_i:
+                if param_to_plot=='fx':
+                    param_rep_lst.append(repeat[0,0])
+                elif param_to_plot=='fy':
+                    param_rep_lst.append(repeat[1,1])
+                elif param_to_plot=='cx':
+                    param_rep_lst.append(repeat[0,2])
+                elif param_to_plot=='cy':
+                    param_rep_lst.append(repeat[1,2])
+            param_lst.append(param_rep_lst)
 
-        avg_error,std_error, Q1, Q3= get_average_std(fx_lst, threshold=threshold)
-        plt.plot(num_images_lst, avg_error, label=label, marker=fmt)
+        # plot fx
+        #names=['fx', 'fy', 'cx', 'cy']
+        #for idx, value_to_plot in enumerate([fx_lst, fy_lst, cx_lst, cy_lst]):
+        avg_error,std_error, Q1, Q3= get_average_std(param_lst, threshold=None)
+        plt.plot(num_images_lst, avg_error, label=f'{param_to_plot} {label}', marker=fmt)
         plt.fill_between(num_images_lst, Q1, Q3, alpha=alpha)
         plt.plot(num_images_lst, Q1, color=plt.gca().lines[-1].get_color(), linestyle='--', alpha=1)
         plt.plot(num_images_lst, Q3, color=plt.gca().lines[-1].get_color(), linestyle='--', alpha=1)
+
 
 
 def filter_errors(errors, threshold=100):
@@ -97,8 +102,8 @@ def filter_errors(errors, threshold=100):
     return filtered, total_count
 
 
-def plot_boxplots(num_images_lst, data_dict, shift, color, threshold=1.5, start_val=0, shift_y = 0):
-    all_errors = data_dict['errors']
+def plot_boxplots(num_images_lst, data_dict, shift, color, threshold=1.5, start_val=0, shift_y = 0, param_to_plot='errors_lst'):
+    all_errors = data_dict[param_to_plot]
     for i, pos in enumerate(num_images_lst):
         filtered_errors, num_larger_than_threshold = filter_errors(all_errors[start_val:][i], threshold)
 
@@ -118,17 +123,17 @@ def plot_boxplots(num_images_lst, data_dict, shift, color, threshold=1.5, start_
     #return num_larger_than_threshold
 
 
-def plot_all_boxplots(num_images_lst, data_30,data_25,data_20,data_15, shift=[0.3, 0.1],th_y=50, threshold=50):
+def plot_all_boxplots(num_images_lst, data_30,data_25,data_20,data_15, shift=[0.3, 0.1],th_y=50, threshold=50, param_to_plot='errors_lst', cam='Realsense'):
     
 
     plt.figure(figsize=(12, 8))
     shift_percentage = threshold*0.05
     print(shift_percentage)
 
-    plot_boxplots(num_images_lst, data_30, shift=-shift[0], color='blue', shift_y=th_y-0*shift_percentage, threshold=threshold)
-    plot_boxplots(num_images_lst, data_25, shift=-shift[1], color='green',shift_y=th_y-1*shift_percentage, threshold=threshold)
-    plot_boxplots(num_images_lst, data_20, shift=shift[1], color='red', shift_y=th_y-2*shift_percentage, threshold=threshold)
-    plot_boxplots(num_images_lst, data_15, shift=shift[0], color='purple', shift_y=th_y-3*shift_percentage, threshold=threshold)
+    plot_boxplots(num_images_lst, data_30, shift=-shift[0], color='blue', shift_y=th_y-0*shift_percentage, threshold=threshold, param_to_plot=param_to_plot)
+    plot_boxplots(num_images_lst, data_25, shift=-shift[1], color='green',shift_y=th_y-1*shift_percentage, threshold=threshold, param_to_plot=param_to_plot)
+    plot_boxplots(num_images_lst, data_20, shift=shift[1], color='red', shift_y=th_y-2*shift_percentage, threshold=threshold, param_to_plot=param_to_plot)
+    plot_boxplots(num_images_lst, data_15, shift=shift[0], color='purple', shift_y=th_y-3*shift_percentage, threshold=threshold, param_to_plot=param_to_plot) 
     # add legends to the colors and add the legend to outside the plot on the bottom
     plt.legend(handles=[
         plt.Line2D([0], [0], color='blue', lw=4),
@@ -139,7 +144,7 @@ def plot_all_boxplots(num_images_lst, data_30,data_25,data_20,data_15, shift=[0.
     , loc='lower center', ncol=4, fontsize='large')
     
     plt.xticks(num_images_lst, labels=[str(x) for x in num_images_lst]) 
-    plt.title('Reprojection Error Distribution vs Number of Images (Realsense)')
+    plt.title(f'Reprojection Error Distribution vs Number of Images ({cam})')
     plt.xlabel('Number of Images')
     plt.ylabel('Reprojection Error')
     plt.ylim(None, threshold)
@@ -147,32 +152,31 @@ def plot_all_boxplots(num_images_lst, data_30,data_25,data_20,data_15, shift=[0.
     plt.show()
 
 
-def plot_all_shaded_plots(num_images_lst,data_30, data_25, data_20, data_15, threshold=50, param_to_plot='error'):
+def plot_all_shaded_plots(num_images_lst,data_30, data_25, data_20, data_15, threshold=50, param_to_plot='error', cam='realsense'):
     plt.figure(figsize=(12, 8))
 
-    plot_with_shaded_error(num_images_lst, data_30, '30 realsense', 'o', threshold=threshold, param_to_plot=param_to_plot)
-    plot_with_shaded_error(num_images_lst, data_25, '25 realsense', '*', threshold=threshold, param_to_plot=param_to_plot)
-    plot_with_shaded_error(num_images_lst, data_20, '20 realsense', '^', threshold=threshold, param_to_plot=param_to_plot)
-    plot_with_shaded_error(num_images_lst, data_15, '15 realsense', 's', threshold=threshold, param_to_plot=param_to_plot)
+    plot_with_shaded_error(num_images_lst, data_30, f'30 {cam}', 'o', threshold=threshold, param_to_plot=param_to_plot)
+    plot_with_shaded_error(num_images_lst, data_25, f'25 {cam}', '*', threshold=threshold, param_to_plot=param_to_plot)
+    plot_with_shaded_error(num_images_lst, data_20, f'20 {cam}', '^', threshold=threshold, param_to_plot=param_to_plot)
+    plot_with_shaded_error(num_images_lst, data_15, f'15 {cam}', 's', threshold=threshold, param_to_plot=param_to_plot)
     
     plt.legend()
-    plt.title('Reprojection Error vs Number of Images (Realsense)')
+    if param_to_plot=='errors_lst':
+        plt.title(f'Reprojection Error vs Number of Images ({cam})')
+        plt.ylabel('Reprojection Error')
+    else:
+        plt.title(f'{param_to_plot} vs Number of Images ({cam})')
+        plt.ylabel(f'{param_to_plot}')
     plt.xlabel('Number of Images')
-    plt.ylabel('Reprojection Error')
     plt.grid(True)
     plt.show()
 
-
-""" def plot_intrinsic_params():
-    # load data """
 
 
 
 def main(analysis_pth = f'results/calibration_analysis/'): 
     # load all results
     
-    
-
     #results_df = results_df.sort_values(by=['size_chess', 'camera'])
     endo_data_30, rs_data_30 = load_data(30, analysis_pth=analysis_pth)
     endo_data_25, rs_data_25 = load_data(25, analysis_pth=analysis_pth)
@@ -181,9 +185,7 @@ def main(analysis_pth = f'results/calibration_analysis/'):
 
     start_val = 0
     th_y = 0-threshold*0.02
-    """ num_images_start=5
-    num_images_end=50
-    num_images_step=2 """
+
     #num_images_lst = np.arange(num_images_start, num_images_end, num_images_step)
     #num_images_lst = num_images_lst[start_val:]
     num_images_lst = rs_data_30['num_images_lst'].values[start_val:]
@@ -191,22 +193,26 @@ def main(analysis_pth = f'results/calibration_analysis/'):
 
     if endo == True:
         # plot shaded plots
-        plot_all_shaded_plots(num_images_lst, endo_data_30, endo_data_25, endo_data_20, endo_data_15, threshold=threshold, param_to_plot='errors')
+        plot_all_shaded_plots(num_images_lst, endo_data_30, endo_data_25, endo_data_20, endo_data_15, threshold=threshold, param_to_plot='errors_lst', cam='endo')
         # Line plots with outliers for better visualization
-        plot_all_boxplots(num_images_lst, endo_data_30, endo_data_25, endo_data_20, endo_data_15, shift=shift, th_y=th_y, threshold=threshold)
+        plot_all_boxplots(num_images_lst, endo_data_30, endo_data_25, endo_data_20, endo_data_15, shift=shift, th_y=th_y, threshold=threshold, param_to_plot='errors_lst', cam='endo')
         # plot intrinsics params in subplots
-        plot_all_shaded_plots(num_images_lst, endo_data_30, endo_data_25, endo_data_20, endo_data_15, threshold=threshold, param_to_plot='intrinsics')
+        for param in ['fx', 'fy', 'cx', 'cy']:
+            plot_all_shaded_plots(num_images_lst, endo_data_30, endo_data_25, endo_data_20, endo_data_15, threshold=threshold, param_to_plot=param, cam='endo')
+        #plot_all_shaded_plots(num_images_lst, endo_data_30, endo_data_25, endo_data_20, endo_data_15, threshold=threshold, param_to_plot='fx', cam='endo')
 
 
     if rs == True:
 
         # plot shaded plots
-        plot_all_shaded_plots(num_images_lst,rs_data_30,rs_data_25,rs_data_20,rs_data_15, threshold=threshold, param_to_plot='errors')
+        plot_all_shaded_plots(num_images_lst,rs_data_30,rs_data_25,rs_data_20,rs_data_15, threshold=threshold, param_to_plot='errors_lst', cam='Realsense')
         # Line plots with outliers for better visualization
-        plot_all_boxplots(num_images_lst, rs_data_30,rs_data_25,rs_data_20,rs_data_15, shift=shift,th_y=th_y, threshold=threshold)
+        plot_all_boxplots(num_images_lst, rs_data_30,rs_data_25,rs_data_20,rs_data_15, shift=shift,th_y=th_y, threshold=threshold, param_to_plot='errors_lst', cam='Realsense')
         print('----------------------------------')
         print('--->',rs_data_30.columns)
-        plot_all_shaded_plots(num_images_lst,rs_data_30,rs_data_25,rs_data_20,rs_data_15, threshold=threshold, param_to_plot='intrinsics')
+        for param in ['fx', 'fy', 'cx', 'cy']:
+            plot_all_shaded_plots(num_images_lst,rs_data_30,rs_data_25,rs_data_20,rs_data_15, threshold=threshold, param_to_plot=param, cam='Realsense')
+        #plot_all_shaded_plots(num_images_lst,rs_data_30,rs_data_25,rs_data_20,rs_data_15, threshold=threshold, param_to_plot='fx', cam='Realsense' )
 
 
     return 
@@ -275,22 +281,22 @@ if __name__=='__main__':
 
     else:
         calibration_pth = 'results/intrinsics'
-        min_num_corners = None
-        percentage_of_corners = 0.2
+        min_num_corners = 6
+        percentage_of_corners = 0.5
         threshold = 2
 
         # analysis parameters
-        R = 1000
+        R = 100
         num_images_start=5
-        num_images_end=50 
-        num_images_step=2
-        repeats=50 # number of repeats per number of images analysis
+        num_images_end=60 
+        num_images_step=5
+        repeats=10 # number of repeats per number of images analysis
         endo = True
         rs = True
         shift = [0.3, 0.1]
 
     rec_data = f'MC_{min_num_corners}_PC_{percentage_of_corners}'
-    rec_analysis = f'R{R}_N{num_images_start}_{num_images_end}_{num_images_step}_repeats_{repeats}'
+    rec_analysis = f'R{R}_N{num_images_start}_{num_images_end}_{num_images_step}_repeats_{repeats}_{rec_data}'
 
     main(analysis_pth = f'{calibration_pth}/calibration_analysis/{rec_analysis}') 
     plot_info_as_bar(info_pth=f'{calibration_pth}/raw_corner_data/{rec_data}')

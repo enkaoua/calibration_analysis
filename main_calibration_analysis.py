@@ -197,7 +197,7 @@ def main_intrinsics(
     rec_data = f'MC_None_PC_None'
     rec_filtered_data = f'MC_{min_num_corners}_PC_{percentage_of_corners}'
     # name of recording where analysis data is stored
-    rec_analysis = f'R{reprojection_sample_size}_N{num_images_start}_{num_images_end}_{num_images_step}_repeats_{repeats}'
+    rec_analysis = f'R{reprojection_sample_size}_N{num_images_start}_{num_images_end}_{num_images_step}_repeats_{repeats}_{rec_filtered_data}'
 
     # generate paths where to save table data, split table data and analysis results
     table_pth = f'{results_pth}/raw_corner_data/{rec_data}'
@@ -224,7 +224,7 @@ def main_intrinsics(
                 data_df = pd.read_pickle(table_data_pth)
                 info_df = pd.read_csv(table_info_pth)
             else:
-                data_df, info_df = generate_board_table(image_pths,board,table_data_pth, table_info_pth, min_num_corners=None,percentage_of_corners=None, waiting_time=1, visualise_corner_detection=False)
+                data_df, info_df = generate_board_table(image_pths,board,table_data_pth, table_info_pth, min_num_corners=None,percentage_of_corners=None, waiting_time=waitTime, visualise_corner_detection=visualise_corner_detection)
             
             # filter data
             if os.path.isfile(filtered_table_pth):
