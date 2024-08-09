@@ -3,6 +3,7 @@ import glob
 import itertools
 import os
 import time
+import warnings
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -74,6 +75,10 @@ def visualise_poses(merged = True):
     
     return 
 
+
+
+ 
+
 def main_pose_analysis(
     size_chess = 30,
     num_images = 50,
@@ -99,7 +104,7 @@ def main_pose_analysis(
         os.makedirs(calibration_analysis_results_save_pth)
 
     total_run_time_start = time.time()
-    results_all = pd.DataFrame()
+    #results_all = pd.DataFrame()
     simple_results = []
     for num_poses in tqdm(range(1, len(poses) + 1), desc='Number of Poses'):
         for num_angles in tqdm(range(1, len(angles) + 1), desc='Number of Angles', leave=False):
@@ -109,7 +114,7 @@ def main_pose_analysis(
             reprojection_errors = []
             pose_combinations = list(itertools.combinations(poses, num_poses))
             angle_combinations = list(itertools.combinations(angles, num_angles))
-            
+            results_iteration = pd.DataFrame()
             # for each combination of poses and angles filter out the data and calculate error 
             for pose in tqdm(pose_combinations, desc='Pose Combinations', leave=False):
                 for angle in tqdm(angle_combinations, desc='Angle Combinations', leave=False):
@@ -121,10 +126,11 @@ def main_pose_analysis(
                         (data_for_calibration['pose'].isin(pose)) &
                         (data_for_calibration['deg'].isin(angle))
                         ]
-
+                    # if we have less than the number of images specified (eg 50, take that as the new start)
                     if len(filtered_calibration_data)<num_images_start:
                         num_images_start=len(filtered_calibration_data)
                         #print(f'reducing sample size to {len(filtered_calibration_data)} as that is max images in this filtered data')
+                    # ignore iteration if there's no data corresponding to requirement
                     if len(filtered_calibration_data)==0:
                         #print(f'angle {angle}, pose {pose} is empty')
                         continue
@@ -140,8 +146,7 @@ def main_pose_analysis(
                     results['num_poses'] = num_poses
                     results['num_angles'] = num_angles
                     results['sample size'] = num_images_start
-
-                    results_all = pd.concat([results_all, results], axis=0)
+                    results_iteration = pd.concat([results_iteration, results], axis=0)
 
 
                     reprojection_errors.append(results['average_error'])
@@ -154,14 +159,27 @@ def main_pose_analysis(
                 'num_angles': num_angles,
                 'mean_reprojection_error': overall_mean_error
             })
+            """ simple_results= pd.DataFrame({
+                'num_poses': num_poses,
+                'num_angles': num_angles,
+                'mean_reprojection_error': overall_mean_error
+            }) """
+
+            # save results for this pose and angle
+            results_iteration.to_pickle(f'{calibration_analysis_results_save_pth}/results_P{num_poses}_A{num_angles}.pkl')
+            #simple_results.to_pickle(f'{calibration_analysis_results_save_pth}/simple_results_P{num_poses}_A{num_angles}.pkl')
+
     
     total_run_time_end = time.time()
     print(f'Total run time: {(total_run_time_end - total_run_time_start)/60} minutes')
     # Convert results to a dataframe
     simple_results_df = pd.DataFrame(simple_results)
-    # Visualize results as a heatmap
-    heatmap_data = simple_results_df.pivot('num_poses', 'num_angles', 'mean_reprojection_error')
+    # load and merge all dataframes of all poses and angles
+    #simple_results_df = pd.concat([pd.read_pickle(pth) for pth in glob.glob(f'{calibration_analysis_results_save_pth}/results_P*_A*.pkl') ], ignore_index=True)
 
+    # Visualize results as a heatmap
+    heatmap_data = simple_results_df.pivot(index='num_poses', columns='num_angles', values='mean_reprojection_error')
+    
     plt.figure(figsize=(12, 8))
     sns.heatmap(heatmap_data, annot=True, cmap="YlGnBu")
     plt.title('Mean Reprojection Error by Number of Poses and Angles')
@@ -170,8 +188,8 @@ def main_pose_analysis(
     plt.show()
 
     # save results
-    results_all.to_pickle(f'{calibration_analysis_results_save_pth}/results.pkl')
-    simple_results_df.to_pickle(f'{calibration_analysis_results_save_pth}/simple_results.pkl')
+    #results_all.to_pickle(f'{calibration_analysis_results_save_pth}/results.pkl')
+    #simple_results_df.to_pickle(f'{calibration_analysis_results_save_pth}/simple_results.pkl')
     """ print(results.describe())
     
     # plot as heatmap
@@ -189,18 +207,20 @@ def main_pose_analysis(
 
 
 if __name__=='__main__': 
-
+    #warnings.filterwarnings('ignore', message='RuntimeWarning: overflow encountered in square') 
+    import warnings
+    warnings.filterwarnings("error")
     parser = argparse.ArgumentParser(
         description='pose analysis ')   
     
     parser.add_argument('--size_chess', type=int, default=30, help='size of chessboard used for calibration')
     parser.add_argument('--num_images', type=int, default=50, help='number of images to start analysis')
-    parser.add_argument('--poses', type=list, default=[ 0,1,2,3,4,5,6,7,8], help='poses to analyse')
-    parser.add_argument('--angles', type=list, default=[ 0,1,2,3,4,5,6,7,8,9,10], help='angles to analyse')
+    parser.add_argument('--poses', type=list, default=[ 0,1], help='poses to analyse')
+    parser.add_argument('--angles', type=list, default=[ 0,1], help='angles to analyse')
     parser.add_argument('--camera', type=str, default='endo', help='camera to analyse')
-    parser.add_argument('--data_pth', type=str, default='results/intrinsics/split_data/MC_None_PC_0.2', help='path to save results')
+    parser.add_argument('--data_pth', type=str, default='results/intrinsics/split_data/MC_6.0_PC_0.5', help='path to where data is found')
     parser.add_argument('--calibration_analysis_results_save_pth', type=str, default='results/intrinsics/pose_analysis/', help='path to save results')
-    parser.add_argument('--repeats', type=int, default=1, help='number of repeats per number of images analysis')
+    parser.add_argument('--repeats', type=int, default=2, help='number of repeats per number of images analysis')
     parser.add_argument('--visualise_reprojection_error', type=bool, default=False, help='if set to true, will visualise reprojection error')
     parser.add_argument('--waitTime', type=int, default=0, help='time to wait before capturing next image')
     args = parser.parse_args()
@@ -216,5 +236,7 @@ if __name__=='__main__':
         visualise_reprojection_error = args.visualise_reprojection_error,
         waitTime = args.waitTime
     )
+    warnings.resetwarnings()
+
 
 

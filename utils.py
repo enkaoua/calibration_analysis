@@ -4,7 +4,7 @@ import cv2
 import sksurgerycore.transforms.matrix as skcm
 import numpy as np
 from scipy.spatial.transform import Rotation
-
+import time
 
 
 def sort_and_filter_matched_corners(corners_endo, corners_realsense, ids_endo, ids_realsense, return_ids=False):
@@ -135,11 +135,16 @@ def reprojection_error(imgpoints_detected, imgpoints_reprojected, image=None):
     """
     calculate reprojection error given the detected and reprojected points
     """
-    squared_diffs = np.square(imgpoints_detected- imgpoints_reprojected)
-    error_np = np.sqrt(np.sum(squared_diffs)/len(imgpoints_reprojected))
 
-    # different way of calculating
-    error = np.sqrt((np.square(cv2.norm(imgpoints_detected, imgpoints_reprojected, cv2.NORM_L2))/len(imgpoints_reprojected)))
+    try:
+        squared_diffs = np.square(imgpoints_detected- imgpoints_reprojected)
+        error_np = np.sqrt(np.sum(squared_diffs)/len(imgpoints_reprojected))
+        # round up to 5 decimal places
+        error_np = round(error_np, 5)
+    except RuntimeWarning:
+        error_np =  np.inf
+
+
     if image is not None:
         img_shape = image.shape
         for corner_reprojected, corner_detected in zip(imgpoints_reprojected,imgpoints_detected):
@@ -156,9 +161,9 @@ def reprojection_error(imgpoints_detected, imgpoints_reprojected, image=None):
             cv2.circle(image, (int(centre_detected[0]),    int(centre_detected[1])),    3, (0, 0, 255), -1)
             cv2.circle(image, (int(centre_reprojected[0]), int(centre_reprojected[1])), 3, (0, 255, 0), -1)
 
-        return error_np, error, image
+        return error_np, image
     
-    return error_np, error
+    return error_np
 
 
 def calculate_transform_average(r_lst, t_lst):

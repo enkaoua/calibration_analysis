@@ -143,7 +143,6 @@ def calibrate_hand_eye(T_endo_lst, T_realsense_lst):
 def calculate_hand_eye_reprojection_error(hand_eye,world2realsense,objPoints, imgPoints, intrinsics_endo, distortion_endo, waitTime=1,  endo_reprojection_images_pth=[]): #rs_reprojection_images_pth, board,detect_aruco=False,
     
     mean_errors_np = []
-    mean_errors = []
 
     for i in range(len(objPoints)):
         
@@ -169,17 +168,16 @@ def calculate_hand_eye_reprojection_error(hand_eye,world2realsense,objPoints, im
             endo_im = cv2.imread(endo_reprojection_images_pth[i])
             undistorted_img_endo = cv2.undistort(endo_im, intrinsics_endo, distortion_endo)
             # calculate error
-            error_np, error, annotated_image_endo_board = reprojection_error(img_points_endo_detected, proj_points_2d_endo, undistorted_img_endo)
+            error_np, annotated_image_endo_board = reprojection_error(img_points_endo_detected, proj_points_2d_endo, undistorted_img_endo)
             #print(error)
             cv2.imshow('charuco board', annotated_image_endo_board)
             cv2.waitKey(waitTime)
         else:
-            error_np, error = reprojection_error(img_points_endo_detected, proj_points_2d_endo)
+            error_np = reprojection_error(img_points_endo_detected, proj_points_2d_endo)
 
         mean_errors_np.append(error_np)
-        mean_errors.append(error)  
 
-    return mean_errors_np, mean_errors      
+    return mean_errors_np      
 
 
 def he_analysis(data_df, reprojection_data_df, intrinsics_pth, size_chess, waitTime=1, n=10, repeats=1000, visualise_reprojection_error=False):
@@ -209,14 +207,14 @@ def he_analysis(data_df, reprojection_data_df, intrinsics_pth, size_chess, waitT
             endo_reprojection_images_pth = reprojection_data_df['paths_endo'].values
         else: 
             endo_reprojection_images_pth = []
-        err_np, err  = calculate_hand_eye_reprojection_error(hand_eye,world2realsense,
+        err_np  = calculate_hand_eye_reprojection_error(hand_eye,world2realsense,
                                                                                 objPoints, imgPoints, 
                                                                                 intrinsics_endo, distortion_endo, 
                                                                                 waitTime=waitTime,  
                                                                                 endo_reprojection_images_pth=endo_reprojection_images_pth)
         # calculating mean reprojection error between all images
-        mean_err = pd.DataFrame(err).mean()[0]
-        median_err = pd.DataFrame(err).median()[0]
+        mean_err = pd.DataFrame(err_np).mean()[0]
+        median_err = pd.DataFrame(err_np).median()[0]
         if mean_err-median_err>0.5:
             reprojection_error_mean_final = median_err
         else:
@@ -259,13 +257,45 @@ def perform_hand_eye_calibration_analysis(data_df, reprojection_data_df, intrins
 ######## INTRINSICS ##################################
 ######################################################
 
+def single_intrinsic_reprojection_error(board_data,n,R, intrinsics_initial_guess_pth, image_shape, visualise_reprojection_error, waitTime):
+    # sample from calibration dataset however many number of samples we're investigating
+    calibration_data, _  = sample_dataset(board_data, total_samples=n)
+    # use all reprojection dataset
+    reprojection_data = R
+    
+    # select contents of object points and image points
+    imgPoints = calibration_data.imgPoints.values
+    objPoints = calibration_data.objPoints.values
+    
+
+    mtx, dist = calibrate_charuco_board( 
+                        intrinsics_initial_guess_pth=intrinsics_initial_guess_pth, 
+                        calibration_save_pth='',
+                        image_shape = image_shape,
+                        imgPoints=imgPoints, objPoints=objPoints,
+                        # if we want to calibrate from images
+                        #image_pths=[] ,
+                        #board = None 
+                        )
+    
+    # calculate reprojection error with these values
+    objPoints_reprojection = reprojection_data.objPoints.values
+    imgPoints_reprojection = reprojection_data.imgPoints.values
+    if visualise_reprojection_error:
+        image_paths = reprojection_data.paths.values
+    else: 
+        image_paths = None
+    err = calculate_reprojection_error(mtx, dist, objPoints_reprojection, imgPoints_reprojection, image_pths=image_paths, waitTime=waitTime)
+    return mtx, dist, err, calibration_data
+
 def analyse_calibration_data(board_data, 
                              R, # reprojection df
                              n = 1, # number of frames to use for calibration
                              repeats = 100, # number of times to repeat the calibration process
                              intrinsics_initial_guess_pth='',
                              visualise_reprojection_error = False,
-                             waitTime=1 # wait time for when showing reprojection image
+                             waitTime=1, # wait time for when showing reprojection image
+                             image_shape = (1080, 1920) # shape of the image
                              ): 
     """
     Function performs calibration on random set of n images and calculates the reprojection error.
@@ -280,45 +310,11 @@ def analyse_calibration_data(board_data,
     distortion = []
     errors = []
     num_corners_detected = []
+    # load one of the images to get the shape of the image
     for i in tqdm(range(repeats), desc='repeats', leave=False):  
-        # sample from calibration dataset however many number of samples we're investigating
-        calibration_data, _  = sample_dataset(board_data, total_samples=n)
-        # use all reprojection dataset
-        reprojection_data = R
-        
-        # select contents of object points and image points
-        imgPoints = calibration_data.imgPoints.values
-        objPoints = calibration_data.objPoints.values
+        mtx, dist, err, calibration_data = single_intrinsic_reprojection_error(board_data,n,R, intrinsics_initial_guess_pth, image_shape, visualise_reprojection_error, waitTime)
         # number od corners detected
         num_corners_detected.append(  calibration_data['num_detected_corners'].sum()  )
-        # load one of the images to get the shape of the image
-        image_shape = (1080, 1920)
-        """ image = cv2.imread(calibration_data.paths.values[0])
-        # check if image is None
-        if image is None:
-            image_shape = (1080, 1920)
-        else:
-            image_shape = image.shape[0:-1] """
-
-        mtx, dist = calibrate_charuco_board( 
-                            intrinsics_initial_guess_pth=intrinsics_initial_guess_pth, 
-                            calibration_save_pth='',
-                            image_shape = image_shape,
-                            imgPoints=imgPoints, objPoints=objPoints,
-                            # if we want to calibrate from images
-                            #image_pths=[] ,
-                            #board = None 
-                            )
-        
-        # calculate reprojection error with these values
-        objPoints_reprojection = reprojection_data.objPoints.values
-        imgPoints_reprojection = reprojection_data.imgPoints.values
-        if visualise_reprojection_error:
-            image_paths = reprojection_data.paths.values
-        else: 
-            image_paths = None
-        err = calculate_reprojection_error(mtx, dist, objPoints_reprojection, imgPoints_reprojection, image_pths=image_paths, waitTime=waitTime)
-
         intrinsics.append(mtx)
         distortion.append(dist)
         errors.append(err)
@@ -387,13 +383,17 @@ def perform_analysis(camera, data_df, reprojection_data_df, repeats=1000, num_im
     'distortion': list of distortion coefficients for each iteration
     'average_error': average reprojection error for each iteration
     'std_error': standard deviation of reprojection error for each iteration
+    'num_corners_detected_lst': number of corners detected in each iteration
+
     }
     """
     # perform calibration analysis
     if camera =='realsense':
         intrinsics_initial_guess_pth = f'calibration_estimates/intrinsics_realsense.txt'
+        image_shape = (480, 848)
     else:
         intrinsics_initial_guess_pth = f'calibration_estimates/intrinsics_endo.txt'
+        image_shape = (1080, 1920)
 
     num_images_lst = np.arange(num_images_start, num_images_end, num_images_step)
     average_error_lst = []
@@ -409,18 +409,24 @@ def perform_analysis(camera, data_df, reprojection_data_df, repeats=1000, num_im
                              repeats = repeats, # number of repeats for the calibration
                              intrinsics_initial_guess_pth=intrinsics_initial_guess_pth,
                              visualise_reprojection_error=visualise_reprojection_error,
-                             waitTime=waitTime # time to display each image for (in seconds) when showing reprojection
-                             )
+                             waitTime=waitTime, # time to display each image for (in seconds) when showing reprojection
+                             image_shape=image_shape)
         # ignore infinite errors
         errors_filtered = [e for e in errors if not np.isinf(e)]
         # ignore anything larger than 20
-        errors_filtered = [e for e in errors if e < 20]
+        #errors_filtered = [e for e in errors if e < 20]
         # print how many were infinite or larger than 20
         #print(f'Number of larger errors: {len(errors)-len(errors_filtered)}')
-        
+        # if errors filtered is empty, add a nan
+        if len(errors_filtered)==0:
+            average_error_lst.append(np.nan)
+            std_error_lst.append(np.nan)
+        else:
+            average_error_lst.append(np.median(errors_filtered))
+            std_error_lst.append(np.std(errors_filtered))
+
+
         error_lst.append(errors)
-        average_error_lst.append(np.mean(errors_filtered))
-        std_error_lst.append(np.std(errors_filtered))
         all_intrinsics.append(intrinsics)
         all_distortion.append(distortion)
         num_corners_detected_lst.append(num_corners_detected)
@@ -457,7 +463,6 @@ def calculate_reprojection_error(mtx, dist, objPoints, imgPoints, image_pths=Non
     """
    
     mean_errors = []
-    mean_errors_np = []
     for i in range(len(objPoints)):
         
         if len(objPoints[i])<4 or len(imgPoints[i])<4:
@@ -471,14 +476,12 @@ def calculate_reprojection_error(mtx, dist, objPoints, imgPoints, image_pths=Non
         # calculate error
         if image_pths is not None:
             image = cv2.imread(image_pths[i])
-            error_np, error, annotated_image = reprojection_error(imgpoints_detected, imgpoints_reprojected, image=image)
+            error_np, annotated_image = reprojection_error(imgpoints_detected, imgpoints_reprojected, image=image)
             cv2.imshow('charuco board', annotated_image)
             cv2.waitKey(waitTime) 
         else:
-            error_np, error = reprojection_error(imgpoints_detected, imgpoints_reprojected)
-        mean_errors_np.append(error_np)
-        mean_errors.append(error)
-
+            error_np = reprojection_error(imgpoints_detected, imgpoints_reprojected)
+        mean_errors.append(error_np)
 
     mean = pd.DataFrame(mean_errors).mean()[0]
     median = pd.DataFrame(mean_errors).median()[0]

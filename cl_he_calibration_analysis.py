@@ -15,7 +15,7 @@ def add_recording_args_to_parser(parser):
     parser.add_argument('--num_images_end', type=int, default=60, help='number of images to end analysis')
     parser.add_argument('--num_images_step', type=int, default=1, help='step size for number of images analysis')
     parser.add_argument('--visualise_reprojection_error', type=bool, default=False, help='if set to true, will visualise reprojection error')
-    parser.add_argument('--waitTime', type=int, default=1, help='time to wait before capturing next image')
+    parser.add_argument('--waitTime', type=int, default=5, help='time to wait before capturing next image')
     parser.add_argument('--results_pth', type=str, default='results/intrinsics', help='path to save results')
     parser.add_argument('--chess_sizes', type=list, default=[15, 20, 25, 30], help='sizes of chessboard used for calibration')
     parser.add_argument('--cameras', type=list, default=['endo', 'realsense'], help='cameras used for calibration')
