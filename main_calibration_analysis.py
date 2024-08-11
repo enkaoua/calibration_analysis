@@ -176,7 +176,7 @@ def main_hand_eye(data_path = '/Users/aure/Documents/CARES/data/massive_calibrat
 def main_intrinsics(
         data_path = '/Users/aure/Documents/CARES/data/massive_calibration_data',
         img_ext = 'png',
-        reprojection_sample_size = 100,
+        reprojection_sample_size = None,
         min_num_corners = None, # if none selected, the percentage of corners is used (with min 6 corners)
         percentage_of_corners = 0.2,
         visualise_corner_detection=False,
@@ -189,8 +189,7 @@ def main_intrinsics(
         waitTime = 1, 
         results_pth = 'results/intrinsics', 
         chess_sizes = [15, 20, 25, 30], # 15, 20, 25, 30,
-        cameras = ['endo', 'realsense'], 
-        use_different_board_for_reprojection=True ):
+        cameras = ['endo', 'realsense']):
     
 
     # name of recording (MC- min num of corners, PC- percentage of corners) to be used for generated data (raw and filtered)
@@ -262,8 +261,8 @@ def main_intrinsics(
                 reprojection_data_df = pd.read_pickle(split_reprojection_dataset_pth)
                 remaining_samples = pd.read_pickle(split_calibration_dataset_pth)
             else:                    
-                
-                if use_different_board_for_reprojection:
+                # if no integer has been chosen for reprojection, use all reprojection files from other chessboard as reprojection dataset
+                if reprojection_sample_size is None:
                     remaining_samples = data_df
 
                     reprojection_data_df = all_data_df[all_data_df['chess_size']!=size_chess]
@@ -298,8 +297,6 @@ def main_intrinsics(
     return 
 
 
-def main_poses():
-    return
 
 
 if __name__=='__main__': 

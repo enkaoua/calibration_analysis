@@ -6,7 +6,7 @@ import argparse
 def add_recording_args_to_parser(parser):
     parser.add_argument('--data_path', type=str, default='/Users/aure/Documents/CARES/data/massive_calibration_data', help='path to where images uesd for calibration are stored')
     parser.add_argument('--img_ext', type=str, default='png', help='extension of images')
-    parser.add_argument('--reprojection_sample_size', type=int, default=100, help='number of samples to use for reprojection error')
+    parser.add_argument('--reprojection_sample_size', type=int, default=None, help='number of samples to use for reprojection error')
     parser.add_argument('--min_num_corners', type=str, default=6, help='minimum number of corners to use for calibration')
     parser.add_argument('--percentage_of_corners', type=str, default=0.2, help='percentage of corners to use for calibration')
     parser.add_argument('--visualise_corner_detection', type=bool, default=True, help='if set to true, will visualise corner detection')
@@ -46,6 +46,9 @@ def main():
     data_path = args.data_path
     img_ext = args.img_ext
     reprojection_sample_size = int(args.reprojection_sample_size)
+    # convert string to int or none
+    if reprojection_sample_size is not None:
+        reprojection_sample_size = int(reprojection_sample_size)
     min_num_corners = args.min_num_corners
     # convert string to int or none
     if min_num_corners is not None:
@@ -66,7 +69,6 @@ def main():
     results_pth = args.results_pth
     chess_sizes = args.chess_sizes
     cameras = args.cameras
-    use_different_board_for_reprojection = args.use_different_board_for_reprojection
  
 
     main_intrinsics(data_path = data_path,
@@ -84,8 +86,7 @@ def main():
                     waitTime = waitTime, 
                     results_pth = results_pth, 
                     chess_sizes = chess_sizes,
-                    cameras = cameras,
-                      use_different_board_for_reprojection=use_different_board_for_reprojection )
+                    cameras = cameras)
     
     return 
 
