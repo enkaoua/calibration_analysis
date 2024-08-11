@@ -44,7 +44,7 @@ def main():
 
     data_path = args.data_path
     img_ext = args.img_ext
-    reprojection_sample_size = int(args.reprojection_sample_size)
+    reprojection_sample_size = args.reprojection_sample_size
     # convert string to int or none
     if reprojection_sample_size is not None:
         reprojection_sample_size = int(reprojection_sample_size)
