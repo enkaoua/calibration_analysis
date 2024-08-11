@@ -323,7 +323,7 @@ def analyse_calibration_data(board_data,
     # load one of the images to get the shape of the image
     
     #processes = []
-    for i in tqdm(range(repeats), desc='repeats', leave=False):  
+    for i in range(repeats):  
         """ p = multiprocessing.Process(target = calibrate_and_evaluate, args=(board_data,n,R, intrinsics_initial_guess_pth, image_shape, visualise_reprojection_error, waitTime, num_corners_detected, intrinsics, distortion, errors))
         p.start()
         processes.append(p) """
@@ -332,7 +332,21 @@ def analyse_calibration_data(board_data,
     
     """ for p in processes:
         p.join() """
-        
+
+    """ 
+         with multiprocessing.Pool() as pool:   
+        args_list = [(board_data,n,R, intrinsics_initial_guess_pth, image_shape, visualise_reprojection_error, waitTime) for i in range(repeats)]    
+ 
+        #calibrate_and_evaluate(board_data,n,R, intrinsics_initial_guess_pth, image_shape, visualise_reprojection_error, waitTime)
+        results_all_combinations = tqdm(pool.map(calibrate_and_evaluate, args_list), total=len(args_list), desc='Process Possible Combinations')
+
+    for result in results_all_combinations:
+         intrinsics, distortion, errors, num_corners_detected = result
+         intrinsics.append(intrinsics)
+         distortion.append(distortion)
+         errors.append(errors)
+         num_corners_detected.append(num_corners_detected)
+           """
 
 
 
@@ -418,7 +432,8 @@ def perform_analysis(camera, data_df, reprojection_data_df, repeats=1000, num_im
     all_distortion = []
     std_error_lst = []
     num_corners_detected_lst = []
-    for num_images in tqdm(num_images_lst, desc='num_images', leave=False):
+    #for num_images in tqdm(num_images_lst, desc='num_images', leave=False):
+    for num_images in num_images_lst:
         errors, intrinsics, distortion, num_corners_detected = analyse_calibration_data(data_df,
                              reprojection_data_df, # number of frames to use for calculating reprojection loss
                              n = num_images, # number of frames to use for calibration
