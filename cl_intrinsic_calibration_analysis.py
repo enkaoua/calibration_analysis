@@ -7,9 +7,9 @@ def add_recording_args_to_parser(parser):
     parser.add_argument('--data_path', type=str, default='/Users/aure/Documents/CARES/data/massive_calibration_data', help='path to where images uesd for calibration are stored')
     parser.add_argument('--img_ext', type=str, default='png', help='extension of images')
     parser.add_argument('--reprojection_sample_size', type=int, default=None, help='number of samples to use for reprojection error')
-    parser.add_argument('--min_num_corners', type=str, default=6, help='minimum number of corners to use for calibration')
+    parser.add_argument('--min_num_corners', type=str, default=6.0, help='minimum number of corners to use for calibration')
     parser.add_argument('--percentage_of_corners', type=str, default=0.2, help='percentage of corners to use for calibration')
-    parser.add_argument('--visualise_corner_detection', type=bool, default=True, help='if set to true, will visualise corner detection')
+    parser.add_argument('--visualise_corner_detection', type=bool, default=False, help='if set to true, will visualise corner detection')
     parser.add_argument('--repeats', type=int, default=100, help='number of repeats per number of images analysis')
     parser.add_argument('--num_images_start', type=int, default=5, help='number of images to start analysis')
     parser.add_argument('--num_images_end', type=int, default=60, help='number of images to end analysis')
@@ -19,7 +19,6 @@ def add_recording_args_to_parser(parser):
     parser.add_argument('--results_pth', type=str, default='results/intrinsics', help='path to save results')
     parser.add_argument('--chess_sizes', type=list, default=[15, 20, 25, 30], help='sizes of chessboard used for calibration')
     parser.add_argument('--cameras', type=list, default=['endo', 'realsense'], help='cameras used for calibration')
-    parser.add_argument('--use_different_board_for_reprojection', type=bool, default=True, help='if set to true, will use a different board for reprojection')
     return parser
 
 def main(): 
