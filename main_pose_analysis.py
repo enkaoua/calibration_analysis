@@ -283,15 +283,15 @@ if __name__=='__main__':
     parser = argparse.ArgumentParser(
         description='pose analysis ')   
     
-    parser.add_argument('--size_chess', type=int, default=30, help='size of chessboard used for calibration')
+    parser.add_argument('--size_chess', type=int, default=15, help='size of chessboard used for calibration')
     parser.add_argument('--num_images', type=int, default=50, help='number of images to start analysis')
     parser.add_argument('--poses', type=list, default=[ 0,1,2,3,4,5,6,7,8], help='poses to analyse')
-    parser.add_argument('--angles', type=list, default=[ 0], help='angles to analyse')
+    parser.add_argument('--angles', type=list, default=[ 0,1,2,3,4,5,6,7,8,9,10], help='angles to analyse')
     parser.add_argument('--camera', type=str, default='endo', help='camera to analyse')
     parser.add_argument('--data_pth', type=str, default='results/intrinsics', help='path to where data is found')
     parser.add_argument('--min_num_corners', type=float, default=6.0, help='minimum number of corners to use for calibration')
     parser.add_argument('--percentage_corners', type=float, default=0.5, help='percentage of corners to use for calibration')
-    parser.add_argument('--repeats', type=int, default=2, help='number of repeats per number of images analysis')
+    parser.add_argument('--repeats', type=int, default=20, help='number of repeats per number of images analysis')
     parser.add_argument('--visualise_reprojection_error', type=bool, default=False, help='if set to true, will visualise reprojection error')
     parser.add_argument('--waitTime', type=int, default=0, help='time to wait before capturing next image')
     args = parser.parse_args()
