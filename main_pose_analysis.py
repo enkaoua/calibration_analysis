@@ -111,7 +111,7 @@ def process_angle_combinations(num_images_start,data_for_calibration, pose,angle
 
         results_iteration.append(results)
         reprojection_errors.append(results['average_error'])
-        #return results
+        
  
 
 def main_pose_analysis(
@@ -120,20 +120,23 @@ def main_pose_analysis(
     poses = [ 0,1,2,3,4,5,6,7,8],
     angles = [ 0,1,2,3,4,5,6,7,8,9,10],    
     camera = 'endo' ,
-    data_pth = f'/Users/aure/Documents/CARES/code/charuco_calibration_analysis/results/intrinsics/split_data/MC_None_PC_0.2',
-    calibration_analysis_results_save_pth = f'/Users/aure/Documents/CARES/code/charuco_calibration_analysis/results/intrinsics/pose_analysis/',
+    data_pth = f'results/intrinsics',
+    min_num_corners = 6.0,
+    percentage_corners = 0.2,
     repeats = 1,
     visualise_reprojection_error = False,
     waitTime = 0
 ): 
     
-
+    rec_name = f'MC_{min_num_corners}_PC_{percentage_corners}'
+    split_data_pth = f'{data_pth}/split_data/{rec_name}'
     # pth of data to perform calibration
-    data_for_calibration = pd.read_pickle(f'{data_pth}/{size_chess}_endo_corner_data_calibration_dataset.pkl')
-    data_for_reprojection = pd.read_pickle(f'{data_pth}/{size_chess}_endo_corner_data_reprojection_dataset.pkl')
+    data_for_calibration = pd.read_pickle(f'{split_data_pth}/{size_chess}_endo_corner_data_calibration_dataset.pkl')
+    data_for_reprojection = pd.read_pickle(f'{split_data_pth}/{size_chess}_endo_corner_data_reprojection_dataset.pkl')
 
     num_images_step = 1
 
+    calibration_analysis_results_save_pth = f'{data_pth}/pose_analysis/{rec_name}'
     # create calibration_analysis_results_save_pth if it does not exist
     if not os.path.exists(calibration_analysis_results_save_pth):
         os.makedirs(calibration_analysis_results_save_pth)
@@ -233,7 +236,7 @@ def main_pose_analysis(
             # 
             results_combined = pd.concat(results_iteration, axis=0)
             # save results for this pose and angle
-            results_combined.to_pickle(f'{calibration_analysis_results_save_pth}/testing_multiprocessing/results_P{num_poses}_A{num_angles}.pkl')
+            results_combined.to_pickle(f'{calibration_analysis_results_save_pth}/results_P{num_poses}_A{num_angles}.pkl')
             #simple_results.to_pickle(f'{calibration_analysis_results_save_pth}/simple_results_P{num_poses}_A{num_angles}.pkl')
 
     
@@ -283,10 +286,11 @@ if __name__=='__main__':
     parser.add_argument('--size_chess', type=int, default=30, help='size of chessboard used for calibration')
     parser.add_argument('--num_images', type=int, default=50, help='number of images to start analysis')
     parser.add_argument('--poses', type=list, default=[ 0,1,2,3,4,5,6,7,8], help='poses to analyse')
-    parser.add_argument('--angles', type=list, default=[ 0,1,2,3,4,5,6,7,8,9,10], help='angles to analyse')
+    parser.add_argument('--angles', type=list, default=[ 0], help='angles to analyse')
     parser.add_argument('--camera', type=str, default='endo', help='camera to analyse')
-    parser.add_argument('--data_pth', type=str, default='results/intrinsics/split_data/MC_6.0_PC_0.5', help='path to where data is found')
-    parser.add_argument('--calibration_analysis_results_save_pth', type=str, default='results/intrinsics/pose_analysis/', help='path to save results')
+    parser.add_argument('--data_pth', type=str, default='results/intrinsics', help='path to where data is found')
+    parser.add_argument('--min_num_corners', type=float, default=6.0, help='minimum number of corners to use for calibration')
+    parser.add_argument('--percentage_corners', type=float, default=0.5, help='percentage of corners to use for calibration')
     parser.add_argument('--repeats', type=int, default=2, help='number of repeats per number of images analysis')
     parser.add_argument('--visualise_reprojection_error', type=bool, default=False, help='if set to true, will visualise reprojection error')
     parser.add_argument('--waitTime', type=int, default=0, help='time to wait before capturing next image')
@@ -298,7 +302,8 @@ if __name__=='__main__':
         angles = args.angles,
         camera = args.camera,
         data_pth = args.data_pth,
-        calibration_analysis_results_save_pth = args.calibration_analysis_results_save_pth,
+        min_num_corners = args.min_num_corners,
+        percentage_corners = args.percentage_corners,
         repeats = args.repeats,
         visualise_reprojection_error = args.visualise_reprojection_error,
         waitTime = args.waitTime
