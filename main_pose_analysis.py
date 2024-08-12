@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
-from tqdm.auto import tqdm 
+from tqdm.auto import tqdm
 import concurrent.futures
 import multiprocessing
 from charuco_utils import generate_charuco_board, perform_analysis
@@ -101,7 +101,7 @@ def process_possible_combinations(args ):
                                     filtered_calibration_data,data_for_reprojection, repeats=repeats, 
                                     num_images_start=num_images_start, num_images_end=num_images_start+1, num_images_step=num_images_step,
                                     visualise_reprojection_error=visualise_reprojection_error, waitTime=waitTime,
-                                    results_pth = '')
+                                    results_pth = '', thread_num=f'{pose}_{angle}')
         
         #results['filter_pose'] = pose
         # results['filter_angle'] = angle
@@ -138,7 +138,7 @@ def main_pose_analysis(
 
     num_images_step = 1
 
-    calibration_analysis_results_save_pth = f'{data_pth}/pose_analysis/{rec_name}'
+    calibration_analysis_results_save_pth = f'{data_pth}/pose_analysis/{rec_name}_size_{size_chess}_cam_{camera}_repeats{repeats}'
     # create calibration_analysis_results_save_pth if it does not exist
     if not os.path.exists(calibration_analysis_results_save_pth):
         os.makedirs(calibration_analysis_results_save_pth)
@@ -153,24 +153,37 @@ def main_pose_analysis(
             # of poses and angles
             pose_combinations = list(itertools.combinations(poses, num_poses))
             angle_combinations = list(itertools.combinations(angles, num_angles))
-            results_iteration = []
-            reprojection_errors = []
+            
             # for each combination of poses and angles filter out the data and calculate error 
-            """ for pose in tqdm(pose_combinations, desc='Pose Combinations', leave=False):
+            
+            """ results_iteration = []
+            reprojection_errors = []
+            for pose in tqdm(pose_combinations, desc='Pose Combinations', leave=False):
                 
                 for angle in angle_combinations: 
-                    process_possible_combinations(num_images,data_for_calibration, pose,angle, camera, data_for_reprojection, repeats, num_images_step,visualise_reprojection_error, waitTime, num_poses, num_angles, results_iteration, reprojection_errors  )
-            """
-            with multiprocessing.Pool() as pool:
-                args_list = [(num_images, data_for_calibration, pose, angle, camera, data_for_reprojection, repeats, num_images_step, visualise_reprojection_error, waitTime, num_poses, num_angles) for pose in pose_combinations for angle in angle_combinations]    
-                results_all_combinations = tqdm(pool.map(process_possible_combinations, args_list), total=len(args_list), desc='Process Possible Combinations')
-            # add to 
-            for result in results_all_combinations:
-                results_iteration.append(result)
-                reprojection_errors.append(result['average_error'])
-            """ results_iteration.append(results)
-            reprojection_errors.append(results['average_error']) """
+                    args = (num_images,data_for_calibration, pose,angle, camera, data_for_reprojection, repeats, num_images_step,visualise_reprojection_error, waitTime, num_poses, num_angles)
+                    result = process_possible_combinations(args )
+                    if result is None:
+                        continue
+                    results_iteration.append(result)
+                    reprojection_errors.append(result['average_error']) """
+            # lists un parallel processing
 
+            #manager = multiprocessing.Manager().list()
+            results_iteration = []
+            reprojection_errors = []
+            with concurrent.futures.ProcessPoolExecutor() as pool:
+                args_list = [(num_images, data_for_calibration, pose, angle, camera, data_for_reprojection, repeats, num_images_step, visualise_reprojection_error, waitTime, num_poses, num_angles) for pose in pose_combinations for angle in angle_combinations]    
+                results_all_combinations = tqdm(pool.map(process_possible_combinations, args_list), total=len(args_list), leave=False)
+                # add to 
+                for result in results_all_combinations:
+                    if result is None:
+                        continue
+                    results_iteration.append(result)
+                    reprojection_errors.append(result['average_error'])
+            # convert back to list
+            """ results_iteration = list(results_iteration)
+            reprojection_errors = list(reprojection_errors) """
             # Calculate the overall mean reprojection error for the current combination
             overall_mean_error = np.mean(reprojection_errors)
             # Append results
@@ -237,7 +250,7 @@ if __name__=='__main__':
     parser.add_argument('--data_pth', type=str, default='results/intrinsics', help='path to where data is found')
     parser.add_argument('--min_num_corners', type=float, default=6.0, help='minimum number of corners to use for calibration')
     parser.add_argument('--percentage_corners', type=float, default=0.5, help='percentage of corners to use for calibration')
-    parser.add_argument('--repeats', type=int, default=20, help='number of repeats per number of images analysis')
+    parser.add_argument('--repeats', type=int, default=10, help='number of repeats per number of images analysis')
     parser.add_argument('--visualise_reprojection_error', type=bool, default=False, help='if set to true, will visualise reprojection error')
     parser.add_argument('--waitTime', type=int, default=0, help='time to wait before capturing next image')
     args = parser.parse_args()

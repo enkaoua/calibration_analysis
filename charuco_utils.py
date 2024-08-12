@@ -8,6 +8,7 @@ import glob
 from tqdm import tqdm
 from utils import calculate_transform_average, extrinsic_matrix_to_vecs, extrinsic_vecs_to_matrix, find_best_intrinsics, reprojection_error, sample_dataset, select_min_num_corners, sort_and_filter_matched_corners
 import pandas as pd
+import concurrent.futures
 
 
 ######################################################
@@ -258,7 +259,9 @@ def perform_hand_eye_calibration_analysis(data_df, reprojection_data_df, intrins
 ######## INTRINSICS ##################################
 ######################################################
 
-def calibrate_and_evaluate(board_data,n,R, intrinsics_initial_guess_pth, image_shape, visualise_reprojection_error, waitTime, num_corners_detected, intrinsics, distortion, errors):
+def calibrate_and_evaluate(args):
+    board_data,n,R, intrinsics_initial_guess_pth, image_shape, visualise_reprojection_error, waitTime = args
+
     # sample from calibration dataset however many number of samples we're investigating
     calibration_data, _  = sample_dataset(board_data, total_samples=n)
     # use all reprojection dataset
@@ -287,11 +290,9 @@ def calibrate_and_evaluate(board_data,n,R, intrinsics_initial_guess_pth, image_s
     else: 
         image_paths = None
     err = calculate_reprojection_error(mtx, dist, objPoints_reprojection, imgPoints_reprojection, image_pths=image_paths, waitTime=waitTime)
-    num_corners_detected.append(  calibration_data['num_detected_corners'].sum()  )
-    intrinsics.append(mtx)
-    distortion.append(dist)
-    errors.append(err)
-    #return mtx, dist, err, calibration_data
+
+    num_corners_detected =  calibration_data['num_detected_corners'].sum() 
+    return mtx, dist, err, num_corners_detected
 
 def analyse_calibration_data(board_data, 
                              R, # reprojection df
@@ -300,7 +301,8 @@ def analyse_calibration_data(board_data,
                              intrinsics_initial_guess_pth='',
                              visualise_reprojection_error = False,
                              waitTime=1, # wait time for when showing reprojection image
-                             image_shape = (1080, 1920) # shape of the image
+                             image_shape = (1080, 1920), # shape of the image
+                             thread_num = 0, # number of thread to use for multiprocessing
                              ): 
     """
     Function performs calibration on random set of n images and calculates the reprojection error.
@@ -322,16 +324,15 @@ def analyse_calibration_data(board_data,
     num_corners_detected = []
     # load one of the images to get the shape of the image
     
-    #processes = []
-    for i in range(repeats):  
-        """ p = multiprocessing.Process(target = calibrate_and_evaluate, args=(board_data,n,R, intrinsics_initial_guess_pth, image_shape, visualise_reprojection_error, waitTime, num_corners_detected, intrinsics, distortion, errors))
-        p.start()
-        processes.append(p) """
-        calibrate_and_evaluate(board_data,n,R, intrinsics_initial_guess_pth, image_shape, visualise_reprojection_error, waitTime,  num_corners_detected, intrinsics, distortion, errors)
-        # number od corners detected
-    
-    """ for p in processes:
-        p.join() """
+    for i in tqdm(range(repeats), desc = f'thread {thread_num}'):  
+
+        args = (board_data,n,R, intrinsics_initial_guess_pth, image_shape, visualise_reprojection_error, waitTime)
+        mtx, dist, err, num_corners_detected = calibrate_and_evaluate(args)
+        intrinsics.append(mtx)
+        distortion.append(dist)
+        errors.append(err)
+        num_corners_detected.append( num_corners_detected)  
+
 
     """ 
          with multiprocessing.Pool() as pool:   
@@ -396,7 +397,7 @@ def analyse_calibration_data(board_data,
     return errors, intrinsics, distortion, num_corners_detected
 
 def perform_analysis(camera, data_df, reprojection_data_df, repeats=1000, num_images_start=5, num_images_end=60, num_images_step=2, 
-                     visualise_reprojection_error=False, waitTime=1, results_pth='' ): #, info_df,board,image_pths
+                     visualise_reprojection_error=False, waitTime=1, results_pth='', thread_num=0 ): #, info_df,board,image_pths
     """
     performs calibration analysis to evaluate reprojection error for different number of image samples and board types
 
@@ -434,14 +435,44 @@ def perform_analysis(camera, data_df, reprojection_data_df, repeats=1000, num_im
     num_corners_detected_lst = []
     #for num_images in tqdm(num_images_lst, desc='num_images', leave=False):
     for num_images in num_images_lst:
-        errors, intrinsics, distortion, num_corners_detected = analyse_calibration_data(data_df,
+        """ errors, intrinsics, distortion, num_corners_detected = analyse_calibration_data(data_df,
                              reprojection_data_df, # number of frames to use for calculating reprojection loss
                              n = num_images, # number of frames to use for calibration
                              repeats = repeats, # number of repeats for the calibration
                              intrinsics_initial_guess_pth=intrinsics_initial_guess_pth,
                              visualise_reprojection_error=visualise_reprojection_error,
                              waitTime=waitTime, # time to display each image for (in seconds) when showing reprojection
-                             image_shape=image_shape)
+                             image_shape=image_shape,
+                             thread_num=thread_num) """
+        
+        intrinsics = []
+        distortion = []
+        errors =[]
+        num_corners_detected = []
+        # load one of the images to get the shape of the image
+        
+        """ for i in tqdm(range(repeats), desc = f'thread {thread_num}'):  
+
+            args = (data_df,num_images,reprojection_data_df, intrinsics_initial_guess_pth, image_shape, visualise_reprojection_error, waitTime)
+            mtx, dist, err, num = calibrate_and_evaluate(args)
+            intrinsics.append(mtx)
+            distortion.append(dist)
+            errors.append(err)
+            num_corners_detected.append( num)  """ 
+        
+        with concurrent.futures.ProcessPoolExecutor() as pool:
+            args_list = [(data_df,num_images,reprojection_data_df, intrinsics_initial_guess_pth, image_shape, visualise_reprojection_error, waitTime) for i in range(repeats)]
+            results_all = pool.map(calibrate_and_evaluate, args_list)
+
+            # add to 
+            for result in results_all:
+                mtx, dist, err, num = result
+                intrinsics.append(mtx)
+                distortion.append(dist)
+                errors.append(err)
+                num_corners_detected.append( num) 
+                
+
         # ignore infinite errors
         errors_filtered = [e for e in errors if not np.isinf(e)]
         # ignore anything larger than 20
@@ -462,11 +493,13 @@ def perform_analysis(camera, data_df, reprojection_data_df, repeats=1000, num_im
         all_distortion.append(distortion)
         num_corners_detected_lst.append(num_corners_detected)
 
-    
+
     # save intrinsics, distortion and errors
     results = {'num_images_lst':num_images_lst, 'errors_lst':error_lst, 'num_corners_detected_lst':num_corners_detected_lst, 'intrinsics':all_intrinsics,'distortion':all_distortion,  'average_error':average_error_lst, 'std_error':std_error_lst}
     results_df = pd.DataFrame(data=results)
     
+    if results_df is None:
+        print('none')
     # save dataframe
     if len(results_pth)>0:
         results_df.to_pickle(results_pth)
