@@ -175,8 +175,10 @@ def main_pose_analysis(
 
             if sample_combinations:
                 # pick a random set of n pose and angle combinations out of the above ones
-                pose_combinations = random.sample(pose_combinations, sample_combinations)
-                angle_combinations = random.sample(angle_combinations, sample_combinations)
+                if len(pose_combinations) > sample_combinations:
+                    pose_combinations = random.sample(pose_combinations, sample_combinations)
+                if len(angle_combinations) > sample_combinations:
+                    angle_combinations = random.sample(angle_combinations, sample_combinations)
             
             # for each combination of poses and angles filter out the data and calculate error 
             
