@@ -2,6 +2,7 @@ import argparse
 import glob
 import itertools
 import os
+import random
 import time
 import warnings
 import numpy as np
@@ -127,7 +128,8 @@ def main_pose_analysis(
     percentage_corners = 0.2,
     repeats = 1,
     visualise_reprojection_error = False,
-    waitTime = 0
+    waitTime = 0,
+    sample_combinations = 5
 ): 
     
     rec_name = f'MC_{min_num_corners}_PC_{percentage_corners}'
@@ -138,7 +140,7 @@ def main_pose_analysis(
 
     num_images_step = 1
 
-    calibration_analysis_results_save_pth = f'{data_pth}/pose_analysis/{rec_name}_size_{size_chess}_cam_{camera}_repeats{repeats}'
+    calibration_analysis_results_save_pth = f'{data_pth}/pose_analysis/{rec_name}_size_{size_chess}_cam_{camera}_repeats{repeats}_sample_combinations_{sample_combinations}'
     # create calibration_analysis_results_save_pth if it does not exist
     if not os.path.exists(calibration_analysis_results_save_pth):
         os.makedirs(calibration_analysis_results_save_pth)
@@ -170,6 +172,11 @@ def main_pose_analysis(
             # of poses and angles
             pose_combinations = list(itertools.combinations(poses, num_poses))
             angle_combinations = list(itertools.combinations(angles, num_angles))
+
+            if sample_combinations:
+                # pick a random set of n pose and angle combinations out of the above ones
+                pose_combinations = random.sample(pose_combinations, sample_combinations)
+                angle_combinations = random.sample(angle_combinations, sample_combinations)
             
             # for each combination of poses and angles filter out the data and calculate error 
             
@@ -270,6 +277,7 @@ if __name__=='__main__':
     parser.add_argument('--repeats', type=int, default=5, help='number of repeats per number of images analysis')
     parser.add_argument('--visualise_reprojection_error', type=bool, default=False, help='if set to true, will visualise reprojection error')
     parser.add_argument('--waitTime', type=int, default=0, help='time to wait before capturing next image')
+    parser.add_argument('--sample_combinations', type=int, default=5, help='number of combinations to sample')
     args = parser.parse_args()
     main_pose_analysis(
         size_chess = args.size_chess,
@@ -282,7 +290,8 @@ if __name__=='__main__':
         percentage_corners = args.percentage_corners,
         repeats = args.repeats,
         visualise_reprojection_error = args.visualise_reprojection_error,
-        waitTime = args.waitTime
+        waitTime = args.waitTime,
+        sample_combinations = args.sample_combinations
     )
     warnings.resetwarnings()
 
