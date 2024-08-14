@@ -281,7 +281,7 @@ def calibrate_and_evaluate(args):
                         #image_pths=[] ,
                         #board = None 
                         )
-    
+
     # calculate reprojection error with these values
     objPoints_reprojection = reprojection_data.objPoints.values
     imgPoints_reprojection = reprojection_data.imgPoints.values

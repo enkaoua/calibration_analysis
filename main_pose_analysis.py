@@ -148,6 +148,23 @@ def main_pose_analysis(
     simple_results = []
     for num_poses in tqdm(range(1, len(poses) + 1), desc='Number of Poses'):
         for num_angles in tqdm(range(1, len(angles) + 1), desc='Number of Angles', leave=False):
+            
+            # check if pickle file for this already exists
+            save_pth = f'{calibration_analysis_results_save_pth}/results_P{num_poses}_A{num_angles}.pkl'
+            if os.path.exists(save_pth):
+                # load results and append to simple_results
+                result = pd.read_pickle(save_pth)
+                reprojection_errors = result['average_error']
+                overall_mean_error = np.mean(reprojection_errors)
+                # Append results
+                simple_results.append({
+                    'num_poses': num_poses,
+                    'num_angles': num_angles,
+                    'mean_reprojection_error': overall_mean_error
+                })
+
+                print(f'loading results from pickle file for {num_poses} poses and {num_angles} angles')
+                continue
 
             # for this specific number of poses and number of angles, get all the possible combinations
             # of poses and angles
@@ -244,13 +261,13 @@ if __name__=='__main__':
     
     parser.add_argument('--size_chess', type=int, default=15, help='size of chessboard used for calibration')
     parser.add_argument('--num_images', type=int, default=50, help='number of images to start analysis')
-    parser.add_argument('--poses', type=list, default=[ 0,1,2,3,4,5,6,7,8], help='poses to analyse')
-    parser.add_argument('--angles', type=list, default=[ 0,1,2,3,4,5,6,7,8,9,10], help='angles to analyse')
+    parser.add_argument('--poses', type=list, default=[ 0,1,2,3,4,5,6,7,8,9,10], help='poses to analyse')
+    parser.add_argument('--angles', type=list, default=[ 0,1,3,4,5,6,7,8,9,10], help='angles to analyse')
     parser.add_argument('--camera', type=str, default='endo', help='camera to analyse')
     parser.add_argument('--data_pth', type=str, default='results/intrinsics', help='path to where data is found')
     parser.add_argument('--min_num_corners', type=float, default=6.0, help='minimum number of corners to use for calibration')
     parser.add_argument('--percentage_corners', type=float, default=0.5, help='percentage of corners to use for calibration')
-    parser.add_argument('--repeats', type=int, default=10, help='number of repeats per number of images analysis')
+    parser.add_argument('--repeats', type=int, default=5, help='number of repeats per number of images analysis')
     parser.add_argument('--visualise_reprojection_error', type=bool, default=False, help='if set to true, will visualise reprojection error')
     parser.add_argument('--waitTime', type=int, default=0, help='time to wait before capturing next image')
     args = parser.parse_args()
