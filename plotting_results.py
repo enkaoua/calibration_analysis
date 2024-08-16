@@ -188,7 +188,7 @@ def main(analysis_pth = f'results/calibration_analysis/'):
 
     #num_images_lst = np.arange(num_images_start, num_images_end, num_images_step)
     #num_images_lst = num_images_lst[start_val:]
-    num_images_lst = rs_data_30['num_images_lst'].values[start_val:]
+    num_images_lst = endo_data_30['num_images_lst'].values[start_val:]
 
 
     if endo == True:
@@ -261,22 +261,22 @@ def plot_info_as_bar(info_pth):
 
 
 if __name__=='__main__': 
-    hand_eye = False
+    hand_eye = True
 
     if hand_eye == True:
         calibration_pth = 'results/hand_eye'
         
-        min_num_corners = None # if none selected, the percentage of corners is used (with min 6 corners)
+        min_num_corners = 6.0 # if none selected, the percentage of corners is used (with min 6 corners)
         percentage_of_corners = 0.2
         threshold = 10
         # analysis parameters
-        R = 50
-        repeats=1000 # number of repeats per number of images analysis
-        num_images_start=1
-        num_images_end=55 
+        R = None
+        repeats=5 # number of repeats per number of images analysis
+        num_images_start=5
+        num_images_end=60 
         num_images_step=5
-        endo = False
-        rs = True
+        endo = True
+        rs = False
         shift = [0.3, 0.1]
 
     else:

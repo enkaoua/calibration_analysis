@@ -189,7 +189,7 @@ def find_best_intrinsics(intrinsics_pth, size_chess, camera, save_path=''):
     intrinsics_all_data = pd.read_pickle(f'{intrinsics_pth}/{size_chess}_{camera}_calibration_data.pkl')
     # find where average_error is smallest
     intrinsics_all_data = intrinsics_all_data[intrinsics_all_data.average_error == intrinsics_all_data.average_error.min()]
-    errors_all = intrinsics_all_data['errors'].values[0]
+    errors_all = intrinsics_all_data['errors_lst'].values[0]
     intrinsics = intrinsics_all_data['intrinsics'].values[0][errors_all.index(min(errors_all))]
     distortion = intrinsics_all_data['distortion'].values[0][errors_all.index(min(errors_all))]
 
@@ -201,8 +201,10 @@ def find_best_intrinsics(intrinsics_pth, size_chess, camera, save_path=''):
     return intrinsics, distortion
 
 
-def filter_and_merge_hand_eye_df(data_df_endo, data_df_realsense, info_df_endo):
+def filter_and_merge_hand_eye_df(data_df_endo, data_df_realsense, min_num_corners):
+    
     # combine information of paths for filtering those that don't match between endo and rs
+    # TODO remove warning
     data_df_endo['combined_info'] = data_df_endo[['chess_size', 'pose', 'deg', 'direction', 'frame_number']].astype(str).agg('_'.join, axis=1)
     data_df_realsense['combined_info'] = data_df_realsense[['chess_size', 'pose', 'deg', 'direction', 'frame_number']].astype(str).agg('_'.join, axis=1)
 
@@ -213,8 +215,9 @@ def filter_and_merge_hand_eye_df(data_df_endo, data_df_realsense, info_df_endo):
     data_df_realsense = data_df_realsense[data_df_realsense['combined_info'].isin(common_keys)].reset_index(drop=True)
 
     # Drop the info key column 
-    data_df_endo.drop(columns=['combined_info'], inplace=True)
-    data_df_realsense.drop(columns=['combined_info'], inplace=True)
+    data_df_endo.drop(columns=['combined_info', 'num_detected_corners'], inplace=True)
+    #data_df_realsense.drop(columns=['combined_info'], inplace=True)
+    data_df_realsense.drop(columns=['combined_info','num_detected_corners'], inplace=False)
 
     # merge endo and rs into one dataframe
     common_columns = ['chess_size', 'pose', 'deg', 'direction', 'frame_number']
@@ -225,7 +228,9 @@ def filter_and_merge_hand_eye_df(data_df_endo, data_df_realsense, info_df_endo):
         suffixes=('_endo', '_rs')
     )
     
-    
+    # add empty column num_corners_detected
+    data_df_combined['num_corners_detected'] = np.nan
+
     #### HAND-EYE CALIBRATION ####
     # filter out any unmatched points        
     removed_ids = []
@@ -235,8 +240,8 @@ def filter_and_merge_hand_eye_df(data_df_endo, data_df_realsense, info_df_endo):
         ids_e = row['ids_endo']
         ids_r = row['ids_rs']
         imgPoints_matched, objPoints_matched, img_ids, obj_ids = sort_and_filter_matched_corners(pnts_endo, pnts_3d_rs, ids_e, ids_r, return_ids=True)
-        if len(imgPoints_matched)<info_df_endo.data[3]:
-            # remove row from dataframe
+        if len(imgPoints_matched)<min_num_corners:
+            # remove row from dataframe if the number of points is less than the minimum number of corners
             data_df_combined.drop(row_idx, inplace=True)
             removed_ids.append(row_idx)
         else:
@@ -245,6 +250,7 @@ def filter_and_merge_hand_eye_df(data_df_endo, data_df_realsense, info_df_endo):
             data_df_combined.at[row_idx, 'objPoints_rs'] = objPoints_matched
             data_df_combined.at[row_idx, 'ids_endo'] = img_ids
             data_df_combined.at[row_idx, 'ids_rs'] = obj_ids
+            data_df_combined.at[row_idx, 'num_corners_detected'] = len(img_ids)
     return data_df_combined
 
 

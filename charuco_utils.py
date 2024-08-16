@@ -186,7 +186,7 @@ def he_analysis(data_df, reprojection_data_df, intrinsics_pth, size_chess, waitT
     
     hand_eye_lst = []
     errors = []
-    for i in tqdm(range(repeats)):
+    for i in tqdm(range(repeats), desc='hand-eye calibration', leave=False):
         
         # sample n images from the dataset
         calibration_data, _  = sample_dataset(data_df, total_samples=n)
@@ -236,23 +236,35 @@ def perform_hand_eye_calibration_analysis(data_df, reprojection_data_df, intrins
     error_lst = []
     all_hand_eye = []
     std_error_lst = []
-    for num_images in num_images_lst:
+    num_corners_detected_lst = []
+    for num_images in tqdm(num_images_lst, desc='number of images', leave=False):
         errors_lst, hand_eye_lst = he_analysis(data_df, reprojection_data_df, 
                                                intrinsics_pth, size_chess, 
                                                waitTime=waitTime, n=num_images, repeats=repeats, 
                                                visualise_reprojection_error=visualise_reprojection_error)
-    
+
+        num_corners_detected =  data_df['num_detected_corners'].sum() 
+
         error_lst.append(errors_lst)
         average_error_lst.append(np.mean(errors_lst))
         std_error_lst.append(np.std(errors_lst))
         all_hand_eye.append(hand_eye_lst)
+        num_corners_detected_lst.append(num_corners_detected)
+
 
     # save intrinsics, distortion and errors
-    data = {'num_images_lst':num_images_lst, 'errors':error_lst, 'hand_eye':all_hand_eye,'average_error':average_error_lst, 'std_error':std_error_lst}
+    data = {'num_images_lst':num_images_lst, 
+            'errors_lst':error_lst, 
+            'num_corners_detected_lst':num_corners_detected_lst, 
+            'hand_eye':all_hand_eye,
+            'average_error':average_error_lst, 
+            'std_error':std_error_lst}
     data_df = pd.DataFrame(data=data)
-    data_df.to_pickle(results_pth)
 
-    return
+    # save dataframe
+    if len(results_pth)>0:
+        data_df.to_pickle(results_pth)
+    return data_df
 
 
 ######################################################
@@ -293,108 +305,6 @@ def calibrate_and_evaluate(args):
 
     num_corners_detected =  calibration_data['num_detected_corners'].sum() 
     return mtx, dist, err, num_corners_detected
-
-def analyse_calibration_data(board_data, 
-                             R, # reprojection df
-                             n = 1, # number of frames to use for calibration
-                             repeats = 100, # number of times to repeat the calibration process
-                             intrinsics_initial_guess_pth='',
-                             visualise_reprojection_error = False,
-                             waitTime=1, # wait time for when showing reprojection image
-                             image_shape = (1080, 1920), # shape of the image
-                             thread_num = 0, # number of thread to use for multiprocessing
-                             ): 
-    """
-    Function performs calibration on random set of n images and calculates the reprojection error.
-    This is repeated "repeats" times and the reprojection errors are returned.
-    
-    """
-    #path_to_endo_images = glob.glob(f'{data_path}/{size_chess}_charuco/pose*/acc_*_pos*_deg*_*/raw/he_calibration_images/hand_eye_endo/*.{img_ext}')
-    #path_to_rs_images = glob.glob(f'{data_path}/{size_chess}_charuco/pose*/acc_*_pos*_deg*_*/raw/he_calibration_images/hand_eye_realsense/*.{img_ext}')
-    # where to save information of aruco board
-    #charuco_board_save_pth = f'{data_path}/{size_chess}_charuco'
-    """ manager = multiprocessing.Manager()
-    intrinsics = manager.list([])
-    distortion = manager.list([])
-    errors = manager.list([])
-    num_corners_detected = manager.list([]) """
-    intrinsics = []
-    distortion = []
-    errors =[]
-    num_corners_detected = []
-    # load one of the images to get the shape of the image
-    
-    for i in tqdm(range(repeats), desc = f'thread {thread_num}'):  
-
-        args = (board_data,n,R, intrinsics_initial_guess_pth, image_shape, visualise_reprojection_error, waitTime)
-        mtx, dist, err, num_corners_detected = calibrate_and_evaluate(args)
-        intrinsics.append(mtx)
-        distortion.append(dist)
-        errors.append(err)
-        num_corners_detected.append( num_corners_detected)  
-
-
-    """ 
-         with multiprocessing.Pool() as pool:   
-        args_list = [(board_data,n,R, intrinsics_initial_guess_pth, image_shape, visualise_reprojection_error, waitTime) for i in range(repeats)]    
- 
-        #calibrate_and_evaluate(board_data,n,R, intrinsics_initial_guess_pth, image_shape, visualise_reprojection_error, waitTime)
-        results_all_combinations = tqdm(pool.map(calibrate_and_evaluate, args_list), total=len(args_list), desc='Process Possible Combinations')
-
-    for result in results_all_combinations:
-         intrinsics, distortion, errors, num_corners_detected = result
-         intrinsics.append(intrinsics)
-         distortion.append(distortion)
-         errors.append(errors)
-         num_corners_detected.append(num_corners_detected)
-           """
-
-
-
-    
-
-    """ # split the images into the ones used for calculating calibration and ones used for reprojection
-
-
-    # load the images with these indeces from the list of images of each camera
-    img_paths_for_calibration_endo = [path_to_endo_images[i] for i in img_indeces_for_calibration]
-    img_paths_for_reprojection_rs = [path_to_rs_images[i] for i in img_indeces_for_reprojection]
-    img_paths_for_reprojection_endo = [path_to_endo_images[i] for i in img_indeces_for_reprojection]
-    img_paths_for_calibration_rs = [path_to_rs_images[i] for i in img_indeces_for_calibration]
-    
-    # create boards and 3D cube coords
-    board, number_horizontally, number_vertically, aruco_size, dictionary_id = generate_charuco_board(size_chess)
-    all3DIDs_np, allCorners3D_np, boards, number_of_corners_per_face = boards_3D_points([0], 
-                                                                                        number_horizontally,
-                                                                                        number_vertically,
-                                                                                        size_chess,
-                                                                                        aruco_size,
-                                                                                        dictionary_id, 
-                                                                                        charuco_board_save_pth=charuco_board_save_pth)
-    dictionary = cv2.aruco.getPredefinedDictionary(dictionary_id)
-    
-    camera_intrinsics_initial_guess_endo = np.loadtxt(f'{intrinsics_initial_guess_endo_pth}')
-    intrinsics_endo, distortion_endo  = calibrate_charuco_cube(boards,  dictionary,
-                                                                    number_of_corners_per_face, 
-                                                                    allCorners3D_np, 
-                                                                    all3DIDs_np, 
-                                                                    camera_intrinsics_initial_guess=camera_intrinsics_initial_guess_endo, 
-                                                                    calibration_save_pth=calibration_save_pth,
-                                                                    image_pths=img_paths_for_calibration_endo, capture_all=False )
-    
-
-    camera_intrinsics_initial_guess_rs = np.loadtxt(f'{intrinsics_initial_guess_rs_pth}')
-    intrinsics_rs, distortion_rs  = calibrate_charuco_cube(boards,
-                                                               dictionary,
-                                                                number_of_corners_per_face, 
-                                                                allCorners3D_np, 
-                                                                all3DIDs_np, 
-                                                                camera_intrinsics_initial_guess=camera_intrinsics_initial_guess_rs, 
-                                                                calibration_save_pth=calibration_save_pth,
-                                                                image_pths=img_paths_for_calibration_rs, capture_all=False )
-    
-    """
-    return errors, intrinsics, distortion, num_corners_detected
 
 def perform_analysis(camera, data_df, reprojection_data_df, repeats=1000, num_images_start=5, num_images_end=60, num_images_step=2, 
                      visualise_reprojection_error=False, waitTime=1, results_pth='', thread_num=0 ): #, info_df,board,image_pths
@@ -495,11 +405,15 @@ def perform_analysis(camera, data_df, reprojection_data_df, repeats=1000, num_im
 
 
     # save intrinsics, distortion and errors
-    results = {'num_images_lst':num_images_lst, 'errors_lst':error_lst, 'num_corners_detected_lst':num_corners_detected_lst, 'intrinsics':all_intrinsics,'distortion':all_distortion,  'average_error':average_error_lst, 'std_error':std_error_lst}
+    results = {'num_images_lst':num_images_lst, 
+               'errors_lst':error_lst, 
+               'num_corners_detected_lst':num_corners_detected_lst, 
+               'intrinsics':all_intrinsics,
+               'distortion':all_distortion,  
+               'average_error':average_error_lst, 
+               'std_error':std_error_lst}
     results_df = pd.DataFrame(data=results)
-    
-    if results_df is None:
-        print('none')
+
     # save dataframe
     if len(results_pth)>0:
         results_df.to_pickle(results_pth)
