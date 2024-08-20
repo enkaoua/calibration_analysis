@@ -1,40 +1,43 @@
 import argparse
-import glob
+import concurrent.futures
 import itertools
 import os
 import random
 import time
 import warnings
+
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 import seaborn as sns
 from tqdm.auto import tqdm
-import concurrent.futures
+
 from charuco_utils import perform_analysis
-import warnings
 
 """ def T_to_xyz(data, extension):
     data[f'T_x{extension}'] = data[f'T{extension}'].apply(lambda x: x[0,3])
     data[f'T_y{extension}'] = data[f'T{extension}'].apply(lambda x: x[1,3])
     data[f'T_z{extension}'] = data[f'T{extension}'].apply(lambda x: x[2,3])
+
  """
+
 
 def print_and_show_data_3D(data, extension, ax, sizes, shapes, idx, chess_size):
     print(f'{extension} DATA STATS')
 
     print('RANGES:------------------')
     print('Z')
-    print((data[f'T_z{extension}'].max()-data[f'T_z{extension}'].min())/1000)
+    print((data[f'T_z{extension}'].max() - data[f'T_z{extension}'].min()) / 1000)
     print('Y')
-    print((data[f'T_y{extension}'].max()-data[f'T_y{extension}'].min())/1000)
+    print((data[f'T_y{extension}'].max() - data[f'T_y{extension}'].min()) / 1000)
     print('X')
-    print((data[f'T_x{extension}'].max()-data[f'T_x{extension}'].min())/1000)
+    print((data[f'T_x{extension}'].max() - data[f'T_x{extension}'].min()) / 1000)
 
     print('LENGTHS:------------------')
     print(len(data[f'T_z{extension}']))
 
-    ax.scatter(data[f'T_x{extension}'], data[f'T_y{extension}'], data[f'T_z{extension}'], label=f'{chess_size}mm', alpha=0.5, s=sizes[idx], marker=shapes[idx])
+    ax.scatter(data[f'T_x{extension}'], data[f'T_y{extension}'], data[f'T_z{extension}'], label=f'{chess_size}mm',
+               alpha=0.5, s=sizes[idx], marker=shapes[idx])
     ax.set_xlabel('X')
     ax.set_ylabel('Y')
     ax.set_zlabel('Z')
@@ -78,12 +81,13 @@ def print_and_show_data_3D(data, extension, ax, sizes, shapes, idx, chess_size):
     return 
  """
 
-def process_possible_combinations(args ):
-    num_images_start,data_for_calibration, pose,angle, camera, data_for_reprojection, repeats, num_images_step,visualise_reprojection_error, waitTime, num_poses, num_angles  = args #, results_iteration, reprojection_errors
-    #for angle in tqdm(angle_combinations, desc='Angle Combinations', leave=False):
+
+def process_possible_combinations(args):
+    num_images_start, data_for_calibration, pose, angle, camera, data_for_reprojection, repeats, num_images_step, visualise_reprojection_error, waitTime, num_poses, num_angles = args  # , results_iteration, reprojection_errors
+    # for angle in tqdm(angle_combinations, desc='Angle Combinations', leave=False):
     import warnings
-    warnings.filterwarnings("error")            
-    #num_images_start = num_images
+    warnings.filterwarnings("error")
+    # num_images_start = num_images
 
     # filter out whatever is not the current pose and angle
     filtered_calibration_data = data_for_calibration[
@@ -91,47 +95,46 @@ def process_possible_combinations(args ):
         (data_for_calibration['deg'].isin(angle))
         ]
     # if we have less than the number of images specified (eg 50, take that as the new start)
-    if len(filtered_calibration_data)<num_images_start:
-        num_images_start=len(filtered_calibration_data)
-        #print(f'reducing sample size to {len(filtered_calibration_data)} as that is max images in this filtered data')
+    if len(filtered_calibration_data) < num_images_start:
+        num_images_start = len(filtered_calibration_data)
+        # print(f'reducing sample size to {len(filtered_calibration_data)} as that is max images in this filtered data')
     # ignore iteration if there's no data corresponding to requirement
-    if len(filtered_calibration_data)!=0:
-        #print(f'angle {angle}, pose {pose} is empty')
+    if len(filtered_calibration_data) != 0:
+        # print(f'angle {angle}, pose {pose} is empty')
         # calculate reprojection error
-        results = perform_analysis(camera,  
-                                    filtered_calibration_data,data_for_reprojection, repeats=repeats, 
-                                    num_images_start=num_images_start, num_images_end=num_images_start+1, num_images_step=num_images_step,
-                                    visualise_reprojection_error=visualise_reprojection_error, waitTime=waitTime,
-                                    results_pth = '', thread_num=f'{pose}_{angle}')
-        
-        #results['filter_pose'] = pose
+        results = perform_analysis(camera,
+                                   filtered_calibration_data, data_for_reprojection, repeats=repeats,
+                                   num_images_start=num_images_start, num_images_end=num_images_start + 1,
+                                   num_images_step=num_images_step,
+                                   visualise_reprojection_error=visualise_reprojection_error, waitTime=waitTime,
+                                   results_pth='', thread_num=f'{pose}_{angle}')
+
+        # results['filter_pose'] = pose
         # results['filter_angle'] = angle
         results['num_poses'] = num_poses
         results['num_angles'] = num_angles
         results['sample size'] = num_images_start
-        #results_iteration = pd.concat([results_iteration, results], axis=0)
+        # results_iteration = pd.concat([results_iteration, results], axis=0)
 
         """ results_iteration.append(results)
         reprojection_errors.append(results['average_error']) """
         return results
-        
- 
+
 
 def main_pose_analysis(
-    size_chess = 30,
-    num_images = 50,
-    poses = [ 0,1,2,3,4,5,6,7,8],
-    angles = [ 0,1,2,3,4,5,6,7,8,9,10],    
-    camera = 'endo' ,
-    data_pth = f'results/intrinsics',
-    min_num_corners = 6.0,
-    percentage_corners = 0.2,
-    repeats = 1,
-    visualise_reprojection_error = False,
-    waitTime = 0,
-    sample_combinations = 5
-): 
-    
+        size_chess=30,
+        num_images=50,
+        poses=[0, 1, 2, 3, 4, 5, 6, 7, 8],
+        angles=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+        camera='endo',
+        data_pth=f'results/intrinsics',
+        min_num_corners=6.0,
+        percentage_corners=0.2,
+        repeats=1,
+        visualise_reprojection_error=False,
+        waitTime=0,
+        sample_combinations=5
+):
     rec_name = f'MC_{min_num_corners}_PC_{percentage_corners}'
     split_data_pth = f'{data_pth}/split_data/{rec_name}'
     # pth of data to perform calibration
@@ -146,11 +149,11 @@ def main_pose_analysis(
         os.makedirs(calibration_analysis_results_save_pth)
 
     total_run_time_start = time.time()
-    #results_all = pd.DataFrame()
+    # results_all = pd.DataFrame()
     simple_results = []
     for num_poses in tqdm(range(1, len(poses) + 1), desc='Number of Poses'):
         for num_angles in tqdm(range(1, len(angles) + 1), desc='Number of Angles', leave=False):
-            
+
             # check if pickle file for this already exists
             save_pth = f'{calibration_analysis_results_save_pth}/results_P{num_poses}_A{num_angles}.pkl'
             if os.path.exists(save_pth):
@@ -179,9 +182,9 @@ def main_pose_analysis(
                     pose_combinations = random.sample(pose_combinations, sample_combinations)
                 if len(angle_combinations) > sample_combinations:
                     angle_combinations = random.sample(angle_combinations, sample_combinations)
-            
+
             # for each combination of poses and angles filter out the data and calculate error 
-            
+
             """ results_iteration = []
             reprojection_errors = []
             for pose in tqdm(pose_combinations, desc='Pose Combinations', leave=False):
@@ -195,12 +198,15 @@ def main_pose_analysis(
                     reprojection_errors.append(result['average_error']) """
             # lists un parallel processing
 
-            #manager = multiprocessing.Manager().list()
+            # manager = multiprocessing.Manager().list()
             results_iteration = []
             reprojection_errors = []
             with concurrent.futures.ProcessPoolExecutor() as pool:
-                args_list = [(num_images, data_for_calibration, pose, angle, camera, data_for_reprojection, repeats, num_images_step, visualise_reprojection_error, waitTime, num_poses, num_angles) for pose in pose_combinations for angle in angle_combinations]    
-                results_all_combinations = tqdm(pool.map(process_possible_combinations, args_list), total=len(args_list), leave=False)
+                args_list = [(num_images, data_for_calibration, pose, angle, camera, data_for_reprojection, repeats,
+                              num_images_step, visualise_reprojection_error, waitTime, num_poses, num_angles) for pose
+                             in pose_combinations for angle in angle_combinations]
+                results_all_combinations = tqdm(pool.map(process_possible_combinations, args_list),
+                                                total=len(args_list), leave=False)
                 # add to 
                 for result in results_all_combinations:
                     if result is None:
@@ -221,20 +227,20 @@ def main_pose_analysis(
 
             results_combined = pd.concat(results_iteration, axis=0)
             # save results for this pose and angle
-            results_combined.to_pickle(f'{calibration_analysis_results_save_pth}/results_P{num_poses}_A{num_angles}.pkl')
-            #simple_results.to_pickle(f'{calibration_analysis_results_save_pth}/simple_results_P{num_poses}_A{num_angles}.pkl')
+            results_combined.to_pickle(
+                f'{calibration_analysis_results_save_pth}/results_P{num_poses}_A{num_angles}.pkl')
+            # simple_results.to_pickle(f'{calibration_analysis_results_save_pth}/simple_results_P{num_poses}_A{num_angles}.pkl')
 
-    
     total_run_time_end = time.time()
-    print(f'Total run time: {(total_run_time_end - total_run_time_start)/60} minutes')
+    print(f'Total run time: {(total_run_time_end - total_run_time_start) / 60} minutes')
     # Convert results to a dataframe
     simple_results_df = pd.DataFrame(simple_results)
     # load and merge all dataframes of all poses and angles
-    #simple_results_df = pd.concat([pd.read_pickle(pth) for pth in glob.glob(f'{calibration_analysis_results_save_pth}/results_P*_A*.pkl') ], ignore_index=True)
+    # simple_results_df = pd.concat([pd.read_pickle(pth) for pth in glob.glob(f'{calibration_analysis_results_save_pth}/results_P*_A*.pkl') ], ignore_index=True)
 
     # Visualize results as a heatmap
     heatmap_data = simple_results_df.pivot(index='num_poses', columns='num_angles', values='mean_reprojection_error')
-    
+
     plt.figure(figsize=(12, 8))
     sns.heatmap(heatmap_data, annot=True, cmap="YlGnBu")
     plt.title('Mean Reprojection Error by Number of Poses and Angles')
@@ -243,8 +249,8 @@ def main_pose_analysis(
     plt.savefig(f'{calibration_analysis_results_save_pth}/heatmap.png')
 
     # save results
-    #results_all.to_pickle(f'{calibration_analysis_results_save_pth}/results.pkl')
-    #simple_results_df.to_pickle(f'{calibration_analysis_results_save_pth}/simple_results.pkl')
+    # results_all.to_pickle(f'{calibration_analysis_results_save_pth}/results.pkl')
+    # simple_results_df.to_pickle(f'{calibration_analysis_results_save_pth}/simple_results.pkl')
     """ print(results.describe())
     
     # plot as heatmap
@@ -259,42 +265,40 @@ def main_pose_analysis(
     return
 
 
-
-
-if __name__=='__main__': 
-    #warnings.filterwarnings('ignore', message='RuntimeWarning: overflow encountered in square') 
-    #warnings.filterwarnings("error")
+if __name__ == '__main__':
+    # warnings.filterwarnings('ignore', message='RuntimeWarning: overflow encountered in square')
+    # warnings.filterwarnings("error")
     parser = argparse.ArgumentParser(
-        description='pose analysis ')   
-    
+        description='pose analysis ')
+
     parser.add_argument('--size_chess', type=int, default=15, help='size of chessboard used for calibration')
     parser.add_argument('--num_images', type=int, default=50, help='number of images to start analysis')
-    parser.add_argument('--poses', type=list, default=[ 0,1,2,3,4,5,6,7,8,9,10], help='poses to analyse')
-    parser.add_argument('--angles', type=list, default=[ 0,1,3,4,5,6,7,8,9,10], help='angles to analyse')
+    parser.add_argument('--poses', type=list, default=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], help='poses to analyse')
+    parser.add_argument('--angles', type=list, default=[0, 1, 3, 4, 5, 6, 7, 8, 9, 10], help='angles to analyse')
     parser.add_argument('--camera', type=str, default='endo', help='camera to analyse')
     parser.add_argument('--data_pth', type=str, default='results/intrinsics', help='path to where data is found')
-    parser.add_argument('--min_num_corners', type=float, default=6.0, help='minimum number of corners to use for calibration')
-    parser.add_argument('--percentage_corners', type=float, default=0.5, help='percentage of corners to use for calibration')
+    parser.add_argument('--min_num_corners', type=float, default=6.0,
+                        help='minimum number of corners to use for calibration')
+    parser.add_argument('--percentage_corners', type=float, default=0.5,
+                        help='percentage of corners to use for calibration')
     parser.add_argument('--repeats', type=int, default=5, help='number of repeats per number of images analysis')
-    parser.add_argument('--visualise_reprojection_error', type=bool, default=False, help='if set to true, will visualise reprojection error')
+    parser.add_argument('--visualise_reprojection_error', type=bool, default=False,
+                        help='if set to true, will visualise reprojection error')
     parser.add_argument('--waitTime', type=int, default=0, help='time to wait before capturing next image')
     parser.add_argument('--sample_combinations', type=int, default=5, help='number of combinations to sample')
     args = parser.parse_args()
     main_pose_analysis(
-        size_chess = args.size_chess,
-        num_images = args.num_images,
-        poses = args.poses,
-        angles = args.angles,
-        camera = args.camera,
-        data_pth = args.data_pth,
-        min_num_corners = args.min_num_corners,
-        percentage_corners = args.percentage_corners,
-        repeats = args.repeats,
-        visualise_reprojection_error = args.visualise_reprojection_error,
-        waitTime = args.waitTime,
-        sample_combinations = args.sample_combinations
+        size_chess=args.size_chess,
+        num_images=args.num_images,
+        poses=args.poses,
+        angles=args.angles,
+        camera=args.camera,
+        data_pth=args.data_pth,
+        min_num_corners=args.min_num_corners,
+        percentage_corners=args.percentage_corners,
+        repeats=args.repeats,
+        visualise_reprojection_error=args.visualise_reprojection_error,
+        waitTime=args.waitTime,
+        sample_combinations=args.sample_combinations
     )
     warnings.resetwarnings()
-
-
-
