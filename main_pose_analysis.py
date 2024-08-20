@@ -14,11 +14,11 @@ import concurrent.futures
 import multiprocessing
 from charuco_utils import generate_charuco_board, perform_analysis
 
-def T_to_xyz(data, extension):
+""" def T_to_xyz(data, extension):
     data[f'T_x{extension}'] = data[f'T{extension}'].apply(lambda x: x[0,3])
     data[f'T_y{extension}'] = data[f'T{extension}'].apply(lambda x: x[1,3])
     data[f'T_z{extension}'] = data[f'T{extension}'].apply(lambda x: x[2,3])
-
+ """
 
 def print_and_show_data_3D(data, extension, ax, sizes, shapes, idx, chess_size):
     print(f'{extension} DATA STATS')
@@ -40,7 +40,7 @@ def print_and_show_data_3D(data, extension, ax, sizes, shapes, idx, chess_size):
     ax.set_zlabel('Z')
 
 
-def visualise_poses(merged = True):
+""" def visualise_poses(merged = True):
 
     # plot in 3D the x, y and z poses
     fig = plt.figure()
@@ -76,7 +76,7 @@ def visualise_poses(merged = True):
     plt.show()
     
     return 
-
+ """
 
 def process_possible_combinations(args ):
     num_images_start,data_for_calibration, pose,angle, camera, data_for_reprojection, repeats, num_images_step,visualise_reprojection_error, waitTime, num_poses, num_angles  = args #, results_iteration, reprojection_errors

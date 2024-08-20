@@ -197,8 +197,9 @@ def main(analysis_pth = f'results/calibration_analysis/'):
         # Line plots with outliers for better visualization
         plot_all_boxplots(num_images_lst, endo_data_30, endo_data_25, endo_data_20, endo_data_15, shift=shift, th_y=th_y, threshold=threshold, param_to_plot='errors_lst', cam='endo')
         # plot intrinsics params in subplots
-        for param in ['fx', 'fy', 'cx', 'cy']:
-            plot_all_shaded_plots(num_images_lst, endo_data_30, endo_data_25, endo_data_20, endo_data_15, threshold=threshold, param_to_plot=param, cam='endo')
+        if hand_eye != True:
+            for param in ['fx', 'fy', 'cx', 'cy']:
+                plot_all_shaded_plots(num_images_lst, endo_data_30, endo_data_25, endo_data_20, endo_data_15, threshold=threshold, param_to_plot=param, cam='endo')
         #plot_all_shaded_plots(num_images_lst, endo_data_30, endo_data_25, endo_data_20, endo_data_15, threshold=threshold, param_to_plot='fx', cam='endo')
 
 
@@ -210,8 +211,9 @@ def main(analysis_pth = f'results/calibration_analysis/'):
         plot_all_boxplots(num_images_lst, rs_data_30,rs_data_25,rs_data_20,rs_data_15, shift=shift,th_y=th_y, threshold=threshold, param_to_plot='errors_lst', cam='Realsense')
         print('----------------------------------')
         print('--->',rs_data_30.columns)
-        for param in ['fx', 'fy', 'cx', 'cy']:
-            plot_all_shaded_plots(num_images_lst,rs_data_30,rs_data_25,rs_data_20,rs_data_15, threshold=threshold, param_to_plot=param, cam='Realsense')
+        if hand_eye != True:
+            for param in ['fx', 'fy', 'cx', 'cy']:
+                plot_all_shaded_plots(num_images_lst,rs_data_30,rs_data_25,rs_data_20,rs_data_15, threshold=threshold, param_to_plot=param, cam='Realsense')
         #plot_all_shaded_plots(num_images_lst,rs_data_30,rs_data_25,rs_data_20,rs_data_15, threshold=threshold, param_to_plot='fx', cam='Realsense' )
 
 
@@ -268,10 +270,10 @@ if __name__=='__main__':
         
         min_num_corners = 6.0 # if none selected, the percentage of corners is used (with min 6 corners)
         percentage_of_corners = 0.2
-        threshold = 10
+        threshold = 30
         # analysis parameters
         R = None
-        repeats=5 # number of repeats per number of images analysis
+        repeats=1000 # number of repeats per number of images analysis
         num_images_start=5
         num_images_end=60 
         num_images_step=5
@@ -299,6 +301,6 @@ if __name__=='__main__':
     rec_analysis = f'R{R}_N{num_images_start}_{num_images_end}_{num_images_step}_repeats_{repeats}_{rec_data}'
 
     main(analysis_pth = f'{calibration_pth}/calibration_analysis/{rec_analysis}') 
-    plot_info_as_bar(info_pth=f'{calibration_pth}/raw_corner_data/{rec_data}')
+    #plot_info_as_bar(info_pth=f'{calibration_pth}/raw_corner_data/{rec_data}')
 
 
