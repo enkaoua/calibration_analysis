@@ -11,8 +11,8 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from tqdm.auto import tqdm
 import concurrent.futures
-import multiprocessing
-from charuco_utils import generate_charuco_board, perform_analysis
+from charuco_utils import perform_analysis
+import warnings
 
 """ def T_to_xyz(data, extension):
     data[f'T_x{extension}'] = data[f'T{extension}'].apply(lambda x: x[0,3])
@@ -263,8 +263,7 @@ def main_pose_analysis(
 
 if __name__=='__main__': 
     #warnings.filterwarnings('ignore', message='RuntimeWarning: overflow encountered in square') 
-    import warnings
-    warnings.filterwarnings("error")
+    #warnings.filterwarnings("error")
     parser = argparse.ArgumentParser(
         description='pose analysis ')   
     
