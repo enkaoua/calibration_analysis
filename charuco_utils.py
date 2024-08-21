@@ -209,7 +209,9 @@ def he_analysis(data_df, reprojection_data_df, intrinsics_pth, size_chess, waitT
         imgPoints = reprojection_data_df['imgPoints_endo'].values
 
         # calculate reprojection error
-        intrinsics_endo, distortion_endo = find_best_intrinsics(intrinsics_pth, size_chess, 'endo')
+        #intrinsics_endo, distortion_endo = find_best_intrinsics(intrinsics_pth, size_chess, 'endo')
+        intrinsics_endo = np.loadtxt(f'{intrinsics_pth}/{size_chess}_endo_intrinsics.txt')
+        distortion_endo = np.loadtxt(f'{intrinsics_pth}/{size_chess}_endo_distortion.txt')
         if visualise_reprojection_error:
             endo_reprojection_images_pth = reprojection_data_df['paths_endo'].values
         else:

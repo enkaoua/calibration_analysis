@@ -1,6 +1,7 @@
 import glob
 import os
 
+import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
@@ -82,7 +83,7 @@ def generate_board_table(image_pths, board, table_data_pth, table_info_pth, min_
 
     return data_df, info_df
 
-
+""" 
 def main_hand_eye(data_path='/Users/aure/Documents/CARES/data/massive_calibration_data',
                   img_g_ext='png',
                   cameras=['endo', 'realsense'],
@@ -189,7 +190,7 @@ def main_hand_eye(data_path='/Users/aure/Documents/CARES/data/massive_calibratio
                                                   results_pth=calibration_analysis_results_save_pth)
 
         print(f'analysis done for camera {camera}, size_chess {size_chess}')
-
+ """
 
 def main_intrinsics(
         data_path='/Users/aure/Documents/CARES/data/massive_calibration_data',
@@ -229,6 +230,7 @@ def main_intrinsics(
         # plt.figure()
         min_num_corners_dict = {}
         for size_chess in tqdm(chess_sizes, desc='chess_sizes', leave=True):
+            
             # path where to save tables of board data ['paths', 'imgPoints', 'objPoints', 'chess_size', 'pose', 'deg','direction', 'frame_number']
             table_data_pth = f'{table_pth}/{size_chess}_{camera}_corner_data.pkl'
             # path where to save info about the board data (original number of images, number of images with corners, number of corners detected)
@@ -239,11 +241,15 @@ def main_intrinsics(
             board = generate_charuco_board(size_chess)
 
             if len(intrinsics_for_he) > 0:
-                intrinsics, distortion = find_best_intrinsics(intrinsics_for_he, size_chess, camera,
-                                                              save_path=f'results/intrinsics/best_intrinsics')
+                """ intrinsics, distortion = find_best_intrinsics(intrinsics_for_he, size_chess, camera,
+                                                              save_path=f'results/intrinsics/best_intrinsics') """
+                
+                intrinsics = np.loadtxt(f'{intrinsics_for_he}/{size_chess}_{camera}_intrinsics.txt')
+                distortion = np.loadtxt(f'{intrinsics_for_he}/{size_chess}_{camera}_distortion.txt')
                 HAND_EYE = True
             else:
                 intrinsics, distortion = None, None
+                HAND_EYE = False
 
             # board data table generation
             # generate the board data by detecting the corners in the images or load previously generated data
@@ -256,6 +262,7 @@ def main_intrinsics(
                                                         waiting_time=waitTime,
                                                         visualise_corner_detection=visualise_corner_detection,
                                                         intrinsics=intrinsics, distortion=distortion)
+            print(f'{camera} {size_chess} table done')
 
             # filter data
             if os.path.isfile(filtered_table_pth):
@@ -270,24 +277,26 @@ def main_intrinsics(
                 # filter whatever is less than min number of samples
                 data_df = data_df[data_df['num_detected_corners'] > selected_min_num_corners]
                 data_df.to_pickle(f'{filtered_table_pth}/{size_chess}_{camera}_corner_data.pkl')
-
+            print(f'{camera} {size_chess} filtered table done')
+    
     print('########### MERGING DATA ###################')
     # for HE- merge endo and realsense data and further filter if necessary
-    all_data_df_endo = pd.concat(
-        [pd.read_pickle(data_pth) for data_pth in glob.glob(f'{filtered_table_pth}/*_endo_corner_data.pkl')],
-        ignore_index=True)
-    all_data_df_realsense = pd.concat(
-        [pd.read_pickle(data_pth) for data_pth in glob.glob(f'{filtered_table_pth}/*_realsense_corner_data.pkl')],
-        ignore_index=True)
-    for size_chess in tqdm(chess_sizes, desc='chess_sizes', leave=True):
-        data_df_endo = all_data_df_endo[all_data_df_endo['chess_size'] == size_chess]
-        data_df_realsense = all_data_df_realsense[all_data_df_realsense['chess_size'] == size_chess]
-        # FILTER TABLES AND MERGE
-        min_num_corners = min_num_corners_dict[size_chess]
-        # combined dataframe
-        data_df = filter_and_merge_hand_eye_df(data_df_endo, data_df_realsense, min_num_corners)
-        # save filtered and merged dataset
-        data_df.to_pickle(f'{filtered_table_pth}/{size_chess}_merged_corner_data.pkl')
+    if HAND_EYE == True:
+        all_data_df_endo = pd.concat(
+            [pd.read_pickle(data_pth) for data_pth in glob.glob(f'{filtered_table_pth}/*_endo_corner_data.pkl')],
+            ignore_index=True)
+        all_data_df_realsense = pd.concat(
+            [pd.read_pickle(data_pth) for data_pth in glob.glob(f'{filtered_table_pth}/*_realsense_corner_data.pkl')],
+            ignore_index=True)
+        for size_chess in tqdm(chess_sizes, desc='chess_sizes', leave=True):
+            data_df_endo = all_data_df_endo[all_data_df_endo['chess_size'] == size_chess]
+            data_df_realsense = all_data_df_realsense[all_data_df_realsense['chess_size'] == size_chess]
+            # FILTER TABLES AND MERGE
+            min_num_corners = min_num_corners_dict[size_chess]
+            # combined dataframe
+            data_df = filter_and_merge_hand_eye_df(data_df_endo, data_df_realsense, min_num_corners)
+            # save filtered and merged dataset
+            data_df.to_pickle(f'{filtered_table_pth}/{size_chess}_merged_corner_data.pkl')
 
     print('########### ANALYSIS ###################')
     #### SPLIT DATA AND PERFORM ANALYSIS ########
