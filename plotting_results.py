@@ -228,47 +228,6 @@ def main(analysis_pth=f'results/calibration_analysis/'):
     return
 
 
-def plot_info_as_bar(info_pth):
-    # load all info pkl files
-    info_15_rs, info_15_endo = load_info(15, info_pth=info_pth)
-    info_20_rs, info_20_endo = load_info(20, info_pth=info_pth)
-    info_25_rs, info_25_endo = load_info(25, info_pth=info_pth)
-    info_30_rs, info_30_endo = load_info(30, info_pth=info_pth)
-
-    # plot results as bar chart
-    plt.figure()
-    # subplot 1
-    plt.subplot(1, 3, 1)
-    plt.title(info_15_rs.titles.values[0])
-    plt.bar('15', info_15_rs.data.values[0])  # , label=info_30_rs.titles.values[0])
-    plt.bar('20', info_20_rs.data.values[0])  # , label=info_30_rs.titles.values[0])
-    plt.bar('25', info_25_rs.data.values[0])  # , label=info_30_rs.titles.values[0])
-    plt.bar('30', info_30_rs.data.values[0])  # , label=info_30_rs.titles.values[0])
-    plt.xlabel('Board Size')
-
-    # plotting each board as separate cluster
-    # subplot 2
-    plt.subplot(1, 3, 2)
-    plt.title(info_15_rs.titles.values[1])
-    plt.bar('15', info_15_rs.data.values[1])  # , label=info_15_rs.titles.values[1])
-    plt.bar('20', info_20_rs.data.values[1])  # , label=info_20_rs.titles.values[1])
-    plt.bar('25', info_25_rs.data.values[1])  # , label=info_25_rs.titles.values[1])
-    plt.bar('30', info_30_rs.data.values[1])  # , label=info_30_rs.titles.values[1])
-
-    # number of corners
-    plt.subplot(1, 3, 3)
-    plt.title(info_15_rs.titles.values[2])
-    plt.bar('15', info_15_rs.data.values[2])  # , label=info_15_rs.titles.values[2])
-    plt.bar('20', info_20_rs.data.values[2])  # , label=info_20_rs.titles.values[2])
-    plt.bar('25', info_25_rs.data.values[2])  # , label=info_25_rs.titles.values[2])
-    plt.bar('30', info_30_rs.data.values[2])  # , label=info_30_rs.titles.values[2])
-
-    # make all plots same axis in y axis
-    # plt.ylim(0,  info_15_rs.data.values[2].max()+100)
-    plt.legend()
-    plt.show()
-
-
 if __name__ == '__main__':
     hand_eye = True
 
@@ -280,7 +239,7 @@ if __name__ == '__main__':
         threshold = 30
         # analysis parameters
         R = None
-        repeats = 1000  # number of repeats per number of images analysis
+        repeats = 100  # number of repeats per number of images analysis
         num_images_start = 5
         num_images_end = 60
         num_images_step = 5

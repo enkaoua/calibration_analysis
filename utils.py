@@ -191,15 +191,16 @@ def find_best_intrinsics(intrinsics_pth, size_chess, camera, save_path=''):
     intrinsics_all_data = intrinsics_all_data[
         intrinsics_all_data.average_error == intrinsics_all_data.average_error.min()]
     errors_all = intrinsics_all_data['errors_lst'].values[0]
-    intrinsics = intrinsics_all_data['intrinsics'].values[0][errors_all.index(min(errors_all))]
-    distortion = intrinsics_all_data['distortion'].values[0][errors_all.index(min(errors_all))]
+    min_error = min(errors_all)
+    intrinsics = intrinsics_all_data['intrinsics'].values[0][errors_all.index(min_error)]
+    distortion = intrinsics_all_data['distortion'].values[0][errors_all.index(min_error)]
 
     if len(save_path) > 0:
         # save as txt file
         np.savetxt(f'{save_path}/{size_chess}_{camera}_intrinsics.txt', intrinsics)
         np.savetxt(f'{save_path}/{size_chess}_{camera}_distortion.txt', distortion)
 
-    return intrinsics, distortion
+    return intrinsics, distortion, min_error
 
 
 def filter_and_merge_hand_eye_df(data_df_endo, data_df_realsense, min_num_corners):

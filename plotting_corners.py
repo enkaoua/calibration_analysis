@@ -83,11 +83,11 @@ def plot_main(cameras=['endo', 'realsense'],
 
             corners = data_df['num_corners_detected_lst'].values
             errors = data_df['errors_lst'].values
-            plt.plot(corners, errors, label=f'{size_chess}mm', marker='o', alpha=0.5)
+            plt.scatter(corners, errors, label=f'{size_chess}mm', marker='o', alpha=0.5)
         plt.ylim(0, 2)
         plt.legend()
         plt.title('Reprojection Error vs Number of Images (Realsense)')
-        plt.xlabel('Number of Images')
+        plt.xlabel('Number of Corners Detected')
         plt.ylabel('Reprojection Error')
         plt.grid(True)
         plt.show()
@@ -103,7 +103,7 @@ if __name__ == '__main__':
         num_images_start=5,
         num_images_end=60,
         num_images_step=5,
-        repeats=10,
-        min_corners=6,
-        percentage_of_corners=0.5
+        repeats=100,
+        min_corners=6.0,
+        percentage_of_corners=0.2
     )
