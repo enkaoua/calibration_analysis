@@ -12,78 +12,14 @@ import pandas as pd
 import seaborn as sns
 from tqdm.auto import tqdm
 
-from charuco_utils import perform_analysis
-
-""" def T_to_xyz(data, extension):
-    data[f'T_x{extension}'] = data[f'T{extension}'].apply(lambda x: x[0,3])
-    data[f'T_y{extension}'] = data[f'T{extension}'].apply(lambda x: x[1,3])
-    data[f'T_z{extension}'] = data[f'T{extension}'].apply(lambda x: x[2,3])
-
- """
+from charuco_utils import perform_analysis, perform_hand_eye_calibration_analysis
 
 
-def print_and_show_data_3D(data, extension, ax, sizes, shapes, idx, chess_size):
-    print(f'{extension} DATA STATS')
 
-    print('RANGES:------------------')
-    print('Z')
-    print((data[f'T_z{extension}'].max() - data[f'T_z{extension}'].min()) / 1000)
-    print('Y')
-    print((data[f'T_y{extension}'].max() - data[f'T_y{extension}'].min()) / 1000)
-    print('X')
-    print((data[f'T_x{extension}'].max() - data[f'T_x{extension}'].min()) / 1000)
-
-    print('LENGTHS:------------------')
-    print(len(data[f'T_z{extension}']))
-
-    ax.scatter(data[f'T_x{extension}'], data[f'T_y{extension}'], data[f'T_z{extension}'], label=f'{chess_size}mm',
-               alpha=0.5, s=sizes[idx], marker=shapes[idx])
-    ax.set_xlabel('X')
-    ax.set_ylabel('Y')
-    ax.set_zlabel('Z')
-
-
-""" def visualise_poses(merged = True):
-
-    # plot in 3D the x, y and z poses
-    fig = plt.figure()
-    ax = fig.add_subplot(111, projection='3d')
-    sizes = [15, 5, 2, 1]
-    shapes = ['o', 's', 'p', 'P']
-    for idx, chess_size in enumerate([20,30]):
-
-        if merged:
-            data_pth = f'/Users/aure/Documents/CARES/code/charuco_calibration_analysis/results/hand_eye/split_data/MC_None_PC_0.2/{chess_size}_merged_corner_data_reprojection_dataset.pkl'
-            #data_pth = f'/Users/aure/Documents/CARES/code/charuco_calibration_analysis/results/hand_eye/split_data/MC_None_PC_0.2/{chess_size}_merged_corner_data_calibration_dataset.pkl'
-            data = pd.read_pickle(data_pth)
-
-            T_to_xyz(data, '_endo')
-            print_and_show_data_3D(data, '_endo', ax, sizes, shapes, idx, chess_size)
-            T_to_xyz(data, '_rs')
-            #print_and_show_data_3D(data, '_rs', ax, sizes, shapes, idx, chess_size)
-
-
-        else:
-            data_pth_rs = f'/Users/aure/Documents/CARES/code/charuco_calibration_analysis/results/hand_eye/raw_corner_data/MC_None_PC_0.2/{chess_size}_realsense_corner_data.pkl'
-            data_pth_endo = f'/Users/aure/Documents/CARES/code/charuco_calibration_analysis/results/hand_eye/raw_corner_data/MC_None_PC_0.2/{chess_size}_endo_corner_data.pkl'
-            data_rs = pd.read_pickle(data_pth_rs)
-            data_endo = pd.read_pickle(data_pth_endo)
-
-            T_to_xyz(data_rs, '')
-            T_to_xyz(data_endo, '')
-            #print_and_show_data_3D(data_rs, '', ax, sizes, shapes, idx, chess_size)
-            print_and_show_data_3D(data_endo, '', ax, sizes, shapes, idx, chess_size)
-
-
-        ax.legend()
-    plt.show()
-    
-    return 
- """
 
 
 def process_possible_combinations(args):
-    num_images_start, data_for_calibration, pose, angle, camera, data_for_reprojection, repeats, num_images_step, visualise_reprojection_error, waitTime, num_poses, num_angles = args  # , results_iteration, reprojection_errors
+    num_images_start, data_for_calibration, pose, angle, camera, data_for_reprojection, repeats, num_images_step, visualise_reprojection_error, waitTime, num_poses, num_angles, intrinsics_for_he, size_chess = args  # , results_iteration, reprojection_errors
     # for angle in tqdm(angle_combinations, desc='Angle Combinations', leave=False):
     import warnings
     warnings.filterwarnings("error")
@@ -102,12 +38,25 @@ def process_possible_combinations(args):
     if len(filtered_calibration_data) != 0:
         # print(f'angle {angle}, pose {pose} is empty')
         # calculate reprojection error
-        results = perform_analysis(camera,
-                                   filtered_calibration_data, data_for_reprojection, repeats=repeats,
-                                   num_images_start=num_images_start, num_images_end=num_images_start + 1,
-                                   num_images_step=num_images_step,
-                                   visualise_reprojection_error=visualise_reprojection_error, waitTime=waitTime,
-                                   results_pth='', thread_num=f'{pose}_{angle}')
+        if len(intrinsics_for_he) > 0:
+            results = perform_hand_eye_calibration_analysis(filtered_calibration_data,
+                                                          data_for_reprojection,
+                                                          intrinsics_for_he,
+                                                          size_chess,
+                                                          repeats=repeats,
+                                                          num_images_start=num_images_start,
+                                                          num_images_end=num_images_start+1,
+                                                          num_images_step=num_images_step,
+                                                          visualise_reprojection_error=visualise_reprojection_error,
+                                                          waitTime=waitTime,
+                                                          results_pth='')
+        else:
+            results = perform_analysis(camera,
+                                    filtered_calibration_data, data_for_reprojection, repeats=repeats,
+                                    num_images_start=num_images_start, num_images_end=num_images_start + 1,
+                                    num_images_step=num_images_step,
+                                    visualise_reprojection_error=visualise_reprojection_error, waitTime=waitTime,
+                                    results_pth='', thread_num=f'{pose}_{angle}')
 
         # results['filter_pose'] = pose
         # results['filter_angle'] = angle
@@ -122,18 +71,19 @@ def process_possible_combinations(args):
 
 
 def main_pose_analysis(
-        size_chess=30,
+        size_chess=15,
         num_images=50,
         poses=[0, 1, 2, 3, 4, 5, 6, 7, 8],
         angles=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
-        camera='endo',
+        camera='realsense',
         data_pth=f'results/intrinsics',
         min_num_corners=6.0,
-        percentage_corners=0.2,
-        repeats=1,
+        percentage_corners=0.5,
+        repeats=5,
         visualise_reprojection_error=False,
         waitTime=0,
-        sample_combinations=5
+        sample_combinations=10,
+        intrinsics_for_he = ''
 ):
     rec_name = f'MC_{min_num_corners}_PC_{percentage_corners}'
     split_data_pth = f'{data_pth}/split_data/{rec_name}'
@@ -203,7 +153,7 @@ def main_pose_analysis(
             reprojection_errors = []
             with concurrent.futures.ProcessPoolExecutor() as pool:
                 args_list = [(num_images, data_for_calibration, pose, angle, camera, data_for_reprojection, repeats,
-                              num_images_step, visualise_reprojection_error, waitTime, num_poses, num_angles) for pose
+                              num_images_step, visualise_reprojection_error, waitTime, num_poses, num_angles, intrinsics_for_he, size_chess) for pose
                              in pose_combinations for angle in angle_combinations]
                 results_all_combinations = tqdm(pool.map(process_possible_combinations, args_list),
                                                 total=len(args_list), leave=False)
@@ -275,17 +225,21 @@ if __name__ == '__main__':
     parser.add_argument('--num_images', type=int, default=50, help='number of images to start analysis')
     parser.add_argument('--poses', type=list, default=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], help='poses to analyse')
     parser.add_argument('--angles', type=list, default=[0, 1, 3, 4, 5, 6, 7, 8, 9, 10], help='angles to analyse')
-    parser.add_argument('--camera', type=str, default='endo', help='camera to analyse')
-    parser.add_argument('--data_pth', type=str, default='results/intrinsics', help='path to where data is found')
+    parser.add_argument('--camera', type=str, default='realsense', help='camera to analyse')
+    parser.add_argument('--data_pth', type=str, default='results/hand_eye', help='path to where data is found')
     parser.add_argument('--min_num_corners', type=float, default=6.0,
                         help='minimum number of corners to use for calibration')
-    parser.add_argument('--percentage_corners', type=float, default=0.5,
+    parser.add_argument('--percentage_corners', type=float, default=0.2,
                         help='percentage of corners to use for calibration')
     parser.add_argument('--repeats', type=int, default=5, help='number of repeats per number of images analysis')
     parser.add_argument('--visualise_reprojection_error', type=bool, default=False,
                         help='if set to true, will visualise reprojection error')
     parser.add_argument('--waitTime', type=int, default=0, help='time to wait before capturing next image')
     parser.add_argument('--sample_combinations', type=int, default=5, help='number of combinations to sample')
+
+    # hand eye
+    parser.add_argument('--intrinsics_for_he', type=str, default='results/intrinsics/best_intrinsics', help='path to intrinsics results to be used for he')
+
     args = parser.parse_args()
     main_pose_analysis(
         size_chess=args.size_chess,
@@ -299,6 +253,7 @@ if __name__ == '__main__':
         repeats=args.repeats,
         visualise_reprojection_error=args.visualise_reprojection_error,
         waitTime=args.waitTime,
-        sample_combinations=args.sample_combinations
+        sample_combinations=args.sample_combinations,
+        intrinsics_for_he=args.intrinsics_for_he
     )
     warnings.resetwarnings()
