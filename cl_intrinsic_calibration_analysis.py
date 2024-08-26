@@ -10,24 +10,24 @@ def add_recording_args_to_parser(parser):
                         help='number of samples to use for reprojection error')
     parser.add_argument('--min_num_corners', type=str, default=6.0,
                         help='minimum number of corners to use for calibration')
-    parser.add_argument('--percentage_of_corners', type=str, default=0.2,
+    parser.add_argument('--percentage_of_corners', type=str, default=0.5,
                         help='percentage of corners to use for calibration')
     parser.add_argument('--visualise_corner_detection', type=bool, default=True,
                         help='if set to true, will visualise corner detection')
-    parser.add_argument('--repeats', type=int, default=1000, help='number of repeats per number of images analysis')
+    parser.add_argument('--repeats', type=int, default=10, help='number of repeats per number of images analysis')
     parser.add_argument('--num_images_start', type=int, default=5, help='number of images to start analysis')
-    parser.add_argument('--num_images_end', type=int, default=60, help='number of images to end analysis')
+    parser.add_argument('--num_images_end', type=int, default=50, help='number of images to end analysis')
     parser.add_argument('--num_images_step', type=int, default=5, help='step size for number of images analysis')
     parser.add_argument('--visualise_reprojection_error', type=bool, default=False,
                         help='if set to true, will visualise reprojection error')
-    parser.add_argument('--waitTime', type=int, default=1, help='time to wait before capturing next image')
+    parser.add_argument('--waitTime', type=int, default=0, help='time to wait before capturing next image')
     parser.add_argument('--chess_sizes', type=list, default=[15, 20, 25, 30],
                         help='sizes of chessboard used for calibration')
     parser.add_argument('--cameras', type=list, default=['endo', 'realsense'], help='cameras used for calibration')
 
     parser.add_argument('--results_pth', type=str, default='results/hand_eye', help='path to save results')
     parser.add_argument('--intrinsics_for_he', type=str,
-                        default='results/intrinsics/calibration_analysis/R100_N5_60_5_repeats_100_MC_6.0_PC_0.2',
+                        default='results/intrinsics/best_intrinsics', #results/intrinsics/best_intrinsics
                         help='path to intrinsics results for he')
     return parser
 

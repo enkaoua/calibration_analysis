@@ -6,6 +6,14 @@ import pandas as pd
 import sksurgerycore.transforms.matrix as skcm
 from scipy.spatial.transform import Rotation
 
+def T_to_xyz(data, extension=''):
+    '''
+    function to extract x,y,z from a 4x4 matrix
+    '''
+    data[f'T_x{extension}'] = data[f'T{extension}'].apply(lambda x: x[0,3])
+    data[f'T_y{extension}'] = data[f'T{extension}'].apply(lambda x: x[1,3])
+    data[f'T_z{extension}'] = data[f'T{extension}'].apply(lambda x: x[2,3])
+
 
 def sort_and_filter_matched_corners(corners_endo, corners_realsense, ids_endo, ids_realsense, return_ids=False):
     '''
@@ -240,22 +248,33 @@ def filter_and_merge_hand_eye_df(data_df_endo, data_df_realsense, min_num_corner
     for row_idx, row in data_df_combined.iterrows():
         pnts_endo = row['imgPoints_endo']
         pnts_3d_rs = row['objPoints_rs']
+        pnts_rs = row['imgPoints_rs']
+        pnts_3d_endo = row['objPoints_endo']
         ids_e = row['ids_endo']
         ids_r = row['ids_rs']
-        imgPoints_matched, objPoints_matched, img_ids, obj_ids = sort_and_filter_matched_corners(pnts_endo, pnts_3d_rs,
+
+        # sort and filter matched corners
+        imgPoints_matched_endo, objPoints_matched_rs, ids_endo, ids_rs = sort_and_filter_matched_corners(pnts_endo, pnts_3d_rs,
                                                                                                  ids_e, ids_r,
                                                                                                  return_ids=True)
-        if len(imgPoints_matched) < min_num_corners:
+        # filter also realsense pnts and endo object points
+        imgPoints_matched_rs, objPoints_matched_endo, ids_endo_2, ids_rs_2 = sort_and_filter_matched_corners(pnts_rs, pnts_3d_endo,
+                                                                                                         ids_r, ids_e,
+                                                                                                         return_ids=True)
+
+        if len(imgPoints_matched_endo) < min_num_corners:
             # remove row from dataframe if the number of points is less than the minimum number of corners
             data_df_combined.drop(row_idx, inplace=True)
             removed_ids.append(row_idx)
         else:
             # update the dataframe
-            data_df_combined.at[row_idx, 'imgPoints_endo'] = imgPoints_matched
-            data_df_combined.at[row_idx, 'objPoints_rs'] = objPoints_matched
-            data_df_combined.at[row_idx, 'ids_endo'] = img_ids
-            data_df_combined.at[row_idx, 'ids_rs'] = obj_ids
-            data_df_combined.at[row_idx, 'num_corners_detected'] = len(img_ids)
+            data_df_combined.at[row_idx, 'imgPoints_endo'] = imgPoints_matched_endo
+            data_df_combined.at[row_idx, 'imgPoints_rs'] = imgPoints_matched_rs
+            data_df_combined.at[row_idx, 'objPoints_rs'] = objPoints_matched_rs
+            data_df_combined.at[row_idx, 'objPoints_endo'] = objPoints_matched_endo
+            data_df_combined.at[row_idx, 'ids_endo'] = ids_endo
+            data_df_combined.at[row_idx, 'ids_rs'] = ids_rs
+            data_df_combined.at[row_idx, 'num_corners_detected'] = len(ids_endo)
     return data_df_combined
 
 
