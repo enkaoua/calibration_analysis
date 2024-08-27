@@ -221,33 +221,35 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description='pose analysis ')
 
-    parser.add_argument('size','--size_chess', type=int, default=15, help='size of chessboard used for calibration')
-    parser.add_argument('n','--num_images', type=int, default=50, help='number of images to start analysis')
-    parser.add_argument('p','--poses', type=list, default=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], help='poses to analyse')
-    parser.add_argument('a','--angles', type=list, default=[0, 1, 3, 4, 5, 6, 7, 8, 9, 10], help='angles to analyse')
-    parser.add_argument('cam','--camera', type=str, default='realsense', help='camera to analyse')
+    parser.add_argument('-size','--size_chess', type=int, default=15, help='size of chessboard used for calibration')
+    parser.add_argument('-n','--num_images', type=int, default=50, help='number of images to start analysis')
+    parser.add_argument('-p','--poses', type=list, default=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], help='poses to analyse')
+    parser.add_argument('-a','--angles', type=list, default=[0, 1, 3, 4, 5, 6, 7, 8, 9, 10], help='angles to analyse')
+    parser.add_argument('-cam','--camera', type=str, default='realsense', help='camera to analyse')
     #parser.add_argument('d','--data_pth', type=str, default='results/intrinsics', help='path to where data is found')
-    parser.add_argument('mc','--min_num_corners', type=float, default=6.0,
+    parser.add_argument('-mc','--min_num_corners', type=float, default=6.0,
                         help='minimum number of corners to use for calibration')
-    parser.add_argument('pc','--percentage_corners', type=float, default=0.5,
+    parser.add_argument('-pc','--percentage_corners', type=float, default=0.2,
                         help='percentage of corners to use for calibration')
-    parser.add_argument('r','--repeats', type=int, default=5, help='number of repeats per number of images analysis')
-    parser.add_argument('v','--visualise_reprojection_error', type=bool, default=False,
+    parser.add_argument('-r','--repeats', type=int, default=5, help='number of repeats per number of images analysis')
+    parser.add_argument('-v','--visualise_reprojection_error', type=bool, default=False,
                         help='if set to true, will visualise reprojection error')
-    parser.add_argument('w', '--waitTime', type=int, default=0, help='time to wait before capturing next image')
-    parser.add_argument('s','--sample_combinations', type=int, default=100, help='number of combinations to sample')
+    parser.add_argument('-w', '--waitTime', type=int, default=0, help='time to wait before capturing next image')
+    parser.add_argument('-s','--sample_combinations', type=int, default=100, help='number of combinations to sample')
 
     # hand eye -- if this is enabled, store as true 
-    parser.add_argument('he','--intrinsics_for_he', type=bool, action='store_true', help='if set to true, will store intrinsics for hand eye') 
+    parser.add_argument('-he','--intrinsics_for_he', type=bool, action='store_true', help='if set to true, will store intrinsics for hand eye') 
 
     args = parser.parse_args()
     print(f'intrinsics_for_he {args.intrinsics_for_he}')
 
     if args.intrinsics_for_he:
+        print('hand eye analysis')
         best_intrinsics_pth = f'results/intrinsics/best_intrinsics'
         data_pth = f'results/hand_eye'
         camera = 'None'
     else:
+        print('intrinsics analysis')
         best_intrinsics_pth = f''
         data_pth = f'results/intrinsics'
         camera = args.camera
