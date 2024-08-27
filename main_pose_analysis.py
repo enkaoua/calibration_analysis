@@ -238,7 +238,7 @@ if __name__ == '__main__':
     parser.add_argument('-s','--sample_combinations', type=int, default=100, help='number of combinations to sample')
 
     # hand eye -- if this is enabled, store as true 
-    parser.add_argument('-he','--intrinsics_for_he', type=bool, action='store_true', help='if set to true, will store intrinsics for hand eye') 
+    parser.add_argument('-he','--intrinsics_for_he', action='store_true', help='if set to true, will store intrinsics for hand eye') 
 
     args = parser.parse_args()
     print(f'intrinsics_for_he {args.intrinsics_for_he}')
