@@ -141,9 +141,11 @@ def create_folders(folders):
 def reprojection_error(imgpoints_detected, imgpoints_reprojected, image=None):
     """
     calculate reprojection error given the detected and reprojected points
+    TODO: CHANGE SUM SQ DIFF TO RESIDUALS
     """
 
     try:
+        
         squared_diffs = np.square(imgpoints_detected - imgpoints_reprojected)
         error_np = np.sqrt(np.sum(squared_diffs) / len(imgpoints_reprojected))
         # round up to 5 decimal places
@@ -170,7 +172,7 @@ def reprojection_error(imgpoints_detected, imgpoints_reprojected, image=None):
             cv2.circle(image, (int(centre_reprojected[0]), int(centre_reprojected[1])), 3, (0, 255, 0), -1)
 
         return error_np, image
-
+    
     return error_np
 
 
