@@ -148,10 +148,12 @@ def calibrate_hand_eye(T_endo_lst, T_realsense_lst):
 
 def calculate_hand_eye_reprojection_error(hand_eye, world2realsense, objPoints, imgPoints, intrinsics_endo,
                                           distortion_endo, waitTime=1,
-                                          endo_reprojection_images_pth=[], residuals=False):  # rs_reprojection_images_pth, board,detect_aruco=False,
+                                          endo_reprojection_images_pth=[], return_residuals=False):  # rs_reprojection_images_pth, board,detect_aruco=False,
 
     mean_errors_np = []
     residuals = []
+
+    total_residual_err = 0
 
     for i in range(len(objPoints)):
 
@@ -186,12 +188,13 @@ def calculate_hand_eye_reprojection_error(hand_eye, world2realsense, objPoints, 
             error_np = reprojection_error(img_points_endo_detected, proj_points_2d_endo)
 
         mean_errors_np.append(error_np)
-        if residuals:
-            diff_points  = img_points_endo_detected - proj_points_2d_endo
-            residuals.append(diff_points.reshape((-1)))
+        if return_residuals:
+            diff_points  = (img_points_endo_detected - proj_points_2d_endo).reshape((-1))
+            residuals.append(diff_points)
+            #total_residual_err += np.sum(diff_points.reshape((-1))) / len(diff_points.reshape((-1)))
 
-    if residuals:
-        return np.hstack(residuals)
+    if return_residuals:
+        return np.hstack(residuals) # total_residual_err #
 
     return mean_errors_np
 
@@ -281,8 +284,20 @@ def calibrate_he_opencv(calibration_data):
 
 def hand_eye_objective(params, world2realsense, objPoints, imgPoints, intrinsics_endo, distortion_endo):
     
-    hand_eye = params.reshape(4, 4)
+    """ # Decompose params into rotation vector (rvec) and translation vector (tvec)
+    rvec = params[:3]
+    tvec = params[3:6]
     
+    # Convert rvec to rotation matrix
+    R = cv2.Rodrigues(rvec)[0]
+    
+    # Construct the 4x4 hand-eye matrix
+    hand_eye = np.eye(4)
+    hand_eye[:3, :3] = R
+    hand_eye[:3, 3] = tvec """
+    
+    hand_eye = params.reshape(4, 4)
+
     # Calculate reprojection errors using the hand-eye matrix
     reprojection_errors = calculate_hand_eye_reprojection_error(
         hand_eye, world2realsense, objPoints, imgPoints, intrinsics_endo, distortion_endo, return_residuals=True
@@ -292,12 +307,12 @@ def hand_eye_objective(params, world2realsense, objPoints, imgPoints, intrinsics
     return reprojection_errors
 
 
-def calibrate_hand_eye_pnp_reprojection(calibration_data, intrinsics_endo=None, intrinsics_rs=None, distortion_endo=None, distortion_rs=None, optimise = False, error_threshold = 1):
+def calibrate_hand_eye_pnp_reprojection(calibration_data, intrinsics_endo=None, distortion_endo=None, optimise = True, error_threshold = 1):
 
-    imgPoints_endo = calibration_data['imgPoints_endo'].values
-    img_points_rs = calibration_data['imgPoints_rs'].values
-
-    obj_points  = calibration_data['objPoints_rs'].values
+    #imgPoints_endo = calibration_data['imgPoints_endo'].values
+    #img_points_rs = calibration_data['imgPoints_rs'].values
+    #calibration_data = calibration_data
+    #obj_points  = calibration_data['objPoints_rs'].values
     T_endo_lst = calibration_data['T_endo']
     T_realsense_lst = calibration_data['T_rs']
 
@@ -306,9 +321,15 @@ def calibrate_hand_eye_pnp_reprojection(calibration_data, intrinsics_endo=None, 
     world2realsense = calibration_data['T_rs'].values
     objPoints = calibration_data['objPoints_rs'].values
     imgPoints = calibration_data['imgPoints_endo'].values
-    endo_reprojection_images_pth = calibration_data['paths_endo'].values
+    #endo_reprojection_images_pth = calibration_data['paths_endo'].values
     
-    """ # Calculate the initial mean reprojection error
+    # convert all arrays in world2realsense to float 32
+    #world2realsense = world2realsense.astype(np.float32)
+    world2realsense_d32 = []
+    for i in range(len(world2realsense)):
+        world2realsense_d32.append(world2realsense[i].astype(np.float32))
+
+    # Calculate the initial mean reprojection error
     initial_reprojection_errors = calculate_hand_eye_reprojection_error(
         hand_eye, world2realsense, objPoints, imgPoints, intrinsics_endo, distortion_endo
     )
@@ -316,33 +337,43 @@ def calibrate_hand_eye_pnp_reprojection(calibration_data, intrinsics_endo=None, 
     # Calculate the initial mean reprojection error
     initial_mean_reprojection_error = np.mean(initial_reprojection_errors)
     # Calculate the median reprojection error
-    initial_median_reprojection_error = np.median(initial_reprojection_errors) """
+    initial_median_reprojection_error = np.median(initial_reprojection_errors)
 
     if optimise:
        
         # Extract rotation (rvec) and translation (tvec) from the initial hand-eye matrix
-        #rvec, tvec = extrinsic_matrix_to_vecs(hand_eye)
-        #initial_params = np.hstack((rvec, tvec)).flatten()  # Combine rvec and tvec into a single parameter vector
+        """ rvec, tvec = extrinsic_matrix_to_vecs(hand_eye)
+        initial_params = np.vstack((rvec, tvec)).flatten() """  # Combine rvec and tvec into a single parameter vector
         initial_params = hand_eye.flatten()
 
         # Custom optimization loop
-        current_error = float('inf')
+        current_error = initial_mean_reprojection_error
         iteration = 0
 
         while current_error > error_threshold:
 
+            # ensure all inputs are .astype(dtype=np.float32)
+            intrinsics_endo = intrinsics_endo.astype(dtype=np.float32)
+            distortion_endo = distortion_endo.astype(dtype=np.float32)
             # Optimize the hand-eye transformation
-            result = scipy.optimize.least_sqaures(
+            result = scipy.optimize.least_squares(
                 hand_eye_objective,
                 initial_params,
-                args=(world2realsense, objPoints, imgPoints, intrinsics_endo, distortion_endo),
+                args=(world2realsense_d32, objPoints, imgPoints, intrinsics_endo, distortion_endo),
                 method='lm',  # Levenberg-Marquardt optimization
-                x_scale = 'jac',  # Scale the parameters by the Jacobian
-                jac = '3-point',  # Use numerical Jacobian for the objective function
                 
             )
             
             optimised_hand_eye = result.x.reshape(4, 4)
+            initial_params = optimised_hand_eye.copy().flatten()
+            
+            """ optimised_params = result.x
+            optimised_rvec = optimised_params[:3]
+            optimised_tvec = optimised_params[3:6]
+            # Convert back to 4x4 matrix
+            optimised_hand_eye = extrinsic_vecs_to_matrix(optimised_rvec, optimised_tvec)
+            
+            initial_params = optimised_params """
 
             # Calculate the current reprojection error
             reprojection_errors = calculate_hand_eye_reprojection_error(
@@ -350,14 +381,17 @@ def calibrate_hand_eye_pnp_reprojection(calibration_data, intrinsics_endo=None, 
             )
 
             # Calculate the mean reprojection error
-            mean_reprojection_error = np.mean(reprojection_errors)
+            current_error = np.mean(reprojection_errors)
             # Calculate the median reprojection error
-            median_reprojection_error = np.median(reprojection_errors)
+            # current_error = np.median(reprojection_errors)
             # check if the mean reprojection error is less than the median reprojection error
-
-            current_error = mean_reprojection_error
+            
+            #current_error = mean_reprojection_error
             #print(f"Iteration {iteration}: Reprojection Error = {mean_reprojection_error:.4f}, {median_reprojection_error:.4f}")
             iteration += 1
+
+            print(f"Iteration {iteration}: Reprojection Error = {current_error:.4f}")
+
             
             # Optional: add a stopping criterion based on the number of iterations
             if iteration > 1000:  # Example: stop after 1000 iterations to avoid infinite loop
@@ -367,7 +401,7 @@ def calibrate_hand_eye_pnp_reprojection(calibration_data, intrinsics_endo=None, 
         
     
     # Calculate the final reprojection error
-    """ final_reprojection_errors = calculate_hand_eye_reprojection_error(
+    final_reprojection_errors = calculate_hand_eye_reprojection_error(
         hand_eye, world2realsense, objPoints, imgPoints, intrinsics_endo, distortion_endo
     )
 
@@ -381,7 +415,7 @@ def calibrate_hand_eye_pnp_reprojection(calibration_data, intrinsics_endo=None, 
     print(f'Final mean reprojection error: {final_mean_reprojection_error}')
 
     print(f'Initial median reprojection error: {initial_median_reprojection_error}')
-    print(f'Median reprojection error: {final_median_reprojection_error}') """
+    print(f'Median reprojection error: {final_median_reprojection_error}')
     
     if optimise:
         return optimised_hand_eye
@@ -389,7 +423,7 @@ def calibrate_hand_eye_pnp_reprojection(calibration_data, intrinsics_endo=None, 
 
 
 def he_analysis(data_df, reprojection_data_df, intrinsics_pth, size_chess, waitTime=1, n=10, repeats=1000,
-                visualise_reprojection_error=False):
+                visualise_reprojection_error=False, optimise=True):
     
     #intrinsics_endo, distortion_endo = find_best_intrinsics(intrinsics_pth, size_chess, 'endo')
     intrinsics_endo = np.loadtxt(f'{intrinsics_pth}/{size_chess}_endo_intrinsics.txt')
@@ -409,7 +443,7 @@ def he_analysis(data_df, reprojection_data_df, intrinsics_pth, size_chess, waitT
         T_realsense_lst = calibration_data['T_rs']
 
         #hand_eye = calibrate_hand_eye(T_endo_lst, T_realsense_lst)
-        hand_eye = calibrate_hand_eye_pnp_reprojection(calibration_data, intrinsics_endo=intrinsics_endo,intrinsics_rs=intrinsics_rs, distortion_endo=distortion_endo, distortion_rs=distortion_rs)
+        hand_eye = calibrate_hand_eye_pnp_reprojection(calibration_data, intrinsics_endo=intrinsics_endo, distortion_endo=distortion_endo, optimise=optimise, error_threshold=1)
         #hand_eye = calibrate_hand_eye_pnp(calibration_data, intrinsics_endo=intrinsics_endo,intrinsics_rs=intrinsics_rs, distortion_endo=distortion_endo, distortion_rs=distortion_rs)
         #hand_eye = calibrate_he_opencv(calibration_data)
         
@@ -443,7 +477,7 @@ def he_analysis(data_df, reprojection_data_df, intrinsics_pth, size_chess, waitT
 
 def perform_hand_eye_calibration_analysis(data_df, reprojection_data_df, intrinsics_pth, size_chess, repeats=1000,
                                           num_images_start=5, num_images_end=60, num_images_step=2, waitTime=1,
-                                          visualise_reprojection_error=False, results_pth=''):
+                                          visualise_reprojection_error=False, results_pth='', optimise=True):
     num_images_lst = np.arange(num_images_start, num_images_end, num_images_step)
 
     average_error_lst = []
@@ -455,7 +489,8 @@ def perform_hand_eye_calibration_analysis(data_df, reprojection_data_df, intrins
         errors_lst, hand_eye_lst = he_analysis(data_df, reprojection_data_df,
                                                intrinsics_pth, size_chess,
                                                waitTime=waitTime, n=num_images, repeats=repeats,
-                                               visualise_reprojection_error=visualise_reprojection_error)
+                                               visualise_reprojection_error=visualise_reprojection_error,
+                                               optimise=optimise)
 
         num_corners_detected = data_df['num_detected_corners'].sum()
 

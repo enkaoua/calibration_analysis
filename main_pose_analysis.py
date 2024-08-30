@@ -19,7 +19,7 @@ from charuco_utils import perform_analysis, perform_hand_eye_calibration_analysi
 
 
 def process_possible_combinations(args):
-    num_images_start, data_for_calibration, pose, angle, camera, data_for_reprojection, repeats, num_images_step, visualise_reprojection_error, waitTime, num_poses, num_angles, intrinsics_for_he, size_chess = args  # , results_iteration, reprojection_errors
+    num_images_start, data_for_calibration, pose, angle, camera, data_for_reprojection, repeats, num_images_step, visualise_reprojection_error, waitTime, num_poses, num_angles, intrinsics_for_he, size_chess, optimise = args  # , results_iteration, reprojection_errors
     # for angle in tqdm(angle_combinations, desc='Angle Combinations', leave=False):
     import warnings
     warnings.filterwarnings("error")
@@ -49,7 +49,8 @@ def process_possible_combinations(args):
                                                           num_images_step=num_images_step,
                                                           visualise_reprojection_error=visualise_reprojection_error,
                                                           waitTime=waitTime,
-                                                          results_pth='')
+                                                          results_pth='',
+                                                          optimise= optimise)
         else:
             results = perform_analysis(camera,
                                     filtered_calibration_data, data_for_reprojection, repeats=repeats,
@@ -83,7 +84,8 @@ def main_pose_analysis(
         visualise_reprojection_error=False,
         waitTime=0,
         sample_combinations=10,
-        intrinsics_for_he = ''
+        intrinsics_for_he = '',
+        optimise=True
 ):
     rec_name = f'MC_{min_num_corners}_PC_{percentage_corners}'
     split_data_pth = f'{data_pth}/split_data/{rec_name}'
@@ -151,9 +153,9 @@ def main_pose_analysis(
             # manager = multiprocessing.Manager().list()
             results_iteration = []
             reprojection_errors = []
-            with concurrent.futures.ProcessPoolExecutor() as pool:
+            """ with concurrent.futures.ProcessPoolExecutor() as pool:
                 args_list = [(num_images, data_for_calibration, pose, angle, camera, data_for_reprojection, repeats,
-                              num_images_step, visualise_reprojection_error, waitTime, num_poses, num_angles, intrinsics_for_he, size_chess) for pose
+                              num_images_step, visualise_reprojection_error, waitTime, num_poses, num_angles, intrinsics_for_he, size_chess, optimise) for pose
                              in pose_combinations for angle in angle_combinations]
                 results_all_combinations = tqdm(pool.map(process_possible_combinations, args_list),
                                                 total=len(args_list), leave=False)
@@ -162,10 +164,19 @@ def main_pose_analysis(
                     if result is None:
                         continue
                     results_iteration.append(result)
+                    reprojection_errors.append(result['average_error']) """
+            
+            # run non-parallel
+            for pose in tqdm(pose_combinations, desc='Pose Combinations', leave=False):
+                for angle in angle_combinations:
+                    args = (num_images, data_for_calibration, pose, angle, camera, data_for_reprojection, repeats,
+                            num_images_step, visualise_reprojection_error, waitTime, num_poses, num_angles, intrinsics_for_he, size_chess, optimise)
+                    result = process_possible_combinations(args)
+                    if result is None:
+                        continue
+                    results_iteration.append(result)
                     reprojection_errors.append(result['average_error'])
-            # convert back to list
-            """ results_iteration = list(results_iteration)
-            reprojection_errors = list(reprojection_errors) """
+            
             # Calculate the overall mean reprojection error for the current combination
             overall_mean_error = np.mean(reprojection_errors)
             # Append results
@@ -236,10 +247,13 @@ if __name__ == '__main__':
                         help='if set to true, will visualise reprojection error')
     parser.add_argument('-w', '--waitTime', type=int, default=0, help='time to wait before capturing next image')
     parser.add_argument('-s','--sample_combinations', type=int, default=10, help='number of combinations to sample')
-
+    
     # hand eye -- if this is enabled, store as true 
     parser.add_argument('-he','--intrinsics_for_he', action='store_false', help='if set to true, will store intrinsics for hand eye') 
-
+    # hand eye optimisation
+    parser.add_argument('-opt','--hand_eye_optimisation', action='store_false', help='if set to true, will run hand eye optimisation')
+    
+    
     args = parser.parse_args()
     print(f'intrinsics_for_he {args.intrinsics_for_he}')
 
@@ -249,6 +263,8 @@ if __name__ == '__main__':
         data_pth = f'results/hand_eye'
         camera = 'None'
         percentage_corners = 0.2
+        if args.hand_eye_optimisation:
+            print('hand eye optimisation')
     else:
         print('intrinsics analysis')
         best_intrinsics_pth = f''
@@ -269,6 +285,7 @@ if __name__ == '__main__':
         visualise_reprojection_error=args.visualise_reprojection_error,
         waitTime=args.waitTime,
         sample_combinations=args.sample_combinations,
-        intrinsics_for_he=best_intrinsics_pth
+        intrinsics_for_he=best_intrinsics_pth,
+        optimise = args.hand_eye_optimisation
     )
     warnings.resetwarnings()
