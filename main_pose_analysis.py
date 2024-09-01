@@ -261,7 +261,7 @@ if __name__ == '__main__':
         print('hand eye analysis')
         best_intrinsics_pth = f'results/intrinsics/best_intrinsics'
         data_pth = f'results/hand_eye'
-        camera = 'None'
+        camera = 'registration'
         percentage_corners = 0.2
         if args.hand_eye_optimisation:
             print('hand eye optimisation')

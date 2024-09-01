@@ -4,7 +4,7 @@ import cv2
 import numpy as np
 import os
 import glob
-
+from sksurgerycore.algorithms.procrustes import orthogonal_procrustes
 import scipy
 from tqdm import tqdm
 from utils import calculate_transform_average, extrinsic_matrix_to_vecs, extrinsic_vecs_to_matrix, find_best_intrinsics, \
@@ -148,12 +148,10 @@ def calibrate_hand_eye(T_endo_lst, T_realsense_lst):
 
 def calculate_hand_eye_reprojection_error(hand_eye, world2realsense, objPoints, imgPoints, intrinsics_endo,
                                           distortion_endo, waitTime=1,
-                                          endo_reprojection_images_pth=[], return_residuals=False):  # rs_reprojection_images_pth, board,detect_aruco=False,
+                                          endo_reprojection_images_pth=[], return_residuals=False, return_projected_pnts=False):  # rs_reprojection_images_pth, board,detect_aruco=False,
 
     mean_errors_np = []
     residuals = []
-
-    total_residual_err = 0
 
     for i in range(len(objPoints)):
 
@@ -195,7 +193,8 @@ def calculate_hand_eye_reprojection_error(hand_eye, world2realsense, objPoints, 
 
     if return_residuals:
         return np.hstack(residuals) # total_residual_err #
-
+    if return_projected_pnts:
+        return mean_errors_np, points3D_endo ,points3D_realsense #img_points_endo_detected, proj_points_2d_endo
     return mean_errors_np
 
 
@@ -422,6 +421,91 @@ def calibrate_hand_eye_pnp_reprojection(calibration_data, intrinsics_endo=None, 
     return hand_eye
 
 
+def calibrate_hand_eye_registration(calibration_data, intrinsics_endo=None, distortion_endo=None, optimise=False):
+    T_endo_lst = calibration_data['T_endo']
+    T_realsense_lst = calibration_data['T_rs']
+
+    hand_eye = calibrate_hand_eye(T_endo_lst, T_realsense_lst)
+    
+    world2realsense = calibration_data['T_rs'].values
+    world2endo = calibration_data['T_endo'].values
+    objPoints = calibration_data['objPoints_rs'].values
+    imgPoints = calibration_data['imgPoints_endo'].values
+    #endo_reprojection_images_pth = calibration_data['paths_endo'].values
+    
+    # convert all arrays in world2realsense to float 32
+    #world2realsense = world2realsense.astype(np.float32)
+    """ world2realsense_d32 = []
+    for i in range(len(world2realsense)):
+        world2realsense_d32.append(world2realsense[i].astype(np.float32))
+    """
+    # Calculate the initial mean reprojection error
+    initial_reprojection_errors, endo_detected_pnts, rs_projected_pnts = calculate_hand_eye_reprojection_error(
+        hand_eye, world2realsense, objPoints, imgPoints, intrinsics_endo, distortion_endo, return_projected_pnts=True
+    )
+
+    # Calculate the initial mean reprojection error
+    initial_mean_reprojection_error = np.mean(initial_reprojection_errors)
+    # Calculate the median reprojection error
+    initial_median_reprojection_error = np.median(initial_reprojection_errors)
+
+    if optimise:
+        # find transform matrix to register projected points from realsense to endo detected
+        #T, sca = scipy.linalg.orthogonal_procrustes(endo_detected_pnts, rs_projected_pnts)
+
+        rs_pnts = []
+        endo_pnts = []
+        for i in range(len(objPoints)):
+
+            if len(objPoints[i]) < 4 or len(imgPoints[i]) < 4:
+                continue
+
+            board_points_world = objPoints[i].reshape(-1, 3)
+            # filter points by whatever was detected from endo side
+            board_points_world_hom = cv2.convertPointsToHomogeneous(board_points_world).squeeze()
+            # convert to realsense coord system
+            points3D_realsense = (world2realsense[i] @ board_points_world_hom.T).T
+            points_3D_endo = (world2endo[i] @ board_points_world_hom.T).T
+
+            # convert back from homogeneous to 3D
+            points3D_realsense = cv2.convertPointsFromHomogeneous(points3D_realsense).squeeze()
+            points_3D_endo = cv2.convertPointsFromHomogeneous(points_3D_endo).squeeze()
+
+            rs_pnts.append(points3D_realsense)
+            endo_pnts.append(points_3D_endo)
+
+        rs_pnts = np.vstack(rs_pnts)
+        endo_pnts = np.vstack(endo_pnts)
+        #optimised_hand_eye, sca = scipy.linalg.orthogonal_procrustes(rs_pnts, endo_pnts)                               
+        R, t, e = orthogonal_procrustes(endo_pnts, rs_pnts)
+
+        optimised_hand_eye = np.eye(4)
+        optimised_hand_eye[:3, :3] = R
+        optimised_hand_eye[:3, 3] = t.T
+        
+        #optimised_hand_eye = T@hand_eye
+
+        # calculate reprojection error of optimised hand eye
+        final_reprojection_errors = calculate_hand_eye_reprojection_error(
+            optimised_hand_eye, world2realsense, objPoints, imgPoints, intrinsics_endo, distortion_endo
+        )
+
+        # Calculate the initial mean reprojection error
+        final_mean_reprojection_error = np.mean(final_reprojection_errors)
+        # Calculate the median reprojection error
+        final_median_reprojection_error = np.median(final_reprojection_errors)
+
+
+    # check if the mean reprojection error is less than the median reprojection error
+    print(f'Initial mean reprojection error: {initial_mean_reprojection_error}')
+    print(f'Final mean reprojection error: {final_mean_reprojection_error}')
+
+    print(f'Initial median reprojection error: {initial_median_reprojection_error}')
+    print(f'Median reprojection error: {final_median_reprojection_error}')
+    
+
+    return hand_eye
+
 def he_analysis(data_df, reprojection_data_df, intrinsics_pth, size_chess, waitTime=1, n=10, repeats=1000,
                 visualise_reprojection_error=False, optimise=True):
     
@@ -443,9 +527,10 @@ def he_analysis(data_df, reprojection_data_df, intrinsics_pth, size_chess, waitT
         T_realsense_lst = calibration_data['T_rs']
 
         #hand_eye = calibrate_hand_eye(T_endo_lst, T_realsense_lst)
-        hand_eye = calibrate_hand_eye_pnp_reprojection(calibration_data, intrinsics_endo=intrinsics_endo, distortion_endo=distortion_endo, optimise=optimise, error_threshold=1)
+        #hand_eye = calibrate_hand_eye_pnp_reprojection(calibration_data, intrinsics_endo=intrinsics_endo, distortion_endo=distortion_endo, optimise=optimise, error_threshold=1)
         #hand_eye = calibrate_hand_eye_pnp(calibration_data, intrinsics_endo=intrinsics_endo,intrinsics_rs=intrinsics_rs, distortion_endo=distortion_endo, distortion_rs=distortion_rs)
         #hand_eye = calibrate_he_opencv(calibration_data)
+        hand_eye = calibrate_hand_eye_registration(calibration_data, intrinsics_endo=intrinsics_endo, distortion_endo=distortion_endo, optimise=optimise)
         
         # reprojection error
         world2realsense = reprojection_data_df['T_rs'].values
