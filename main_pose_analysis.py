@@ -234,7 +234,7 @@ if __name__ == '__main__':
 
     parser.add_argument('-size','--size_chess', type=int, default=30, help='size of chessboard used for calibration')
     parser.add_argument('-n','--num_images', type=int, default=50, help='number of images to start analysis')
-    parser.add_argument('-p','--poses', type=list, default=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], help='poses to analyse')
+    parser.add_argument('-p','--poses', type=list, default=[0, 1, 2, 3, 4, 5, 6, 7, 8], help='poses to analyse')
     parser.add_argument('-a','--angles', type=list, default=[0, 1, 3, 4, 5, 6, 7, 8, 9, 10], help='angles to analyse')
     parser.add_argument('-cam','--camera', type=str, default='realsense', help='camera to analyse')
     #parser.add_argument('d','--data_pth', type=str, default='results/intrinsics', help='path to where data is found')

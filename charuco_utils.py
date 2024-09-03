@@ -319,6 +319,7 @@ def calibrate_hand_eye_pnp_reprojection(calibration_data,reprojection_data_df, i
     T_realsense_lst = calibration_data['T_rs']
 
     hand_eye = calibrate_hand_eye(T_endo_lst, T_realsense_lst)
+    #hand_eye = registration_hand_eye(calibration_data)
     
     world2realsense = test_data['T_rs'].values
     objPoints = test_data['objPoints_rs'].values
@@ -412,7 +413,7 @@ def calibrate_hand_eye_pnp_reprojection(calibration_data,reprojection_data_df, i
                 break
 
         
-    
+    hand_eye = optimised_hand_eye
     # Calculate the final reprojection error
     final_reprojection_errors = calculate_hand_eye_reprojection_error(
         hand_eye, world2realsense, objPoints, imgPoints, intrinsics_endo, distortion_endo
@@ -434,6 +435,46 @@ def calibrate_hand_eye_pnp_reprojection(calibration_data,reprojection_data_df, i
         return optimised_hand_eye
     return hand_eye
 
+
+
+def registration_hand_eye(calibration_data):
+
+    world2realsense = calibration_data['T_rs'].values
+    world2endo = calibration_data['T_endo'].values
+    objPoints = calibration_data['objPoints_rs'].values
+    imgPoints = calibration_data['imgPoints_endo'].values
+
+    rs_pnts = []
+    endo_pnts = []
+    for i in range(len(objPoints)):
+
+        if len(objPoints[i]) < 4 or len(imgPoints[i]) < 4:
+            continue
+
+        board_points_world = objPoints[i].reshape(-1, 3)
+        # filter points by whatever was detected from endo side
+        board_points_world_hom = cv2.convertPointsToHomogeneous(board_points_world).squeeze()
+        # convert to realsense coord system
+        points3D_realsense = (world2realsense[i] @ board_points_world_hom.T).T
+        points_3D_endo = (world2endo[i] @ board_points_world_hom.T).T
+
+        # convert back from homogeneous to 3D
+        points3D_realsense = cv2.convertPointsFromHomogeneous(points3D_realsense).squeeze()
+        points_3D_endo = cv2.convertPointsFromHomogeneous(points_3D_endo).squeeze()
+
+        rs_pnts.append(points3D_realsense)
+        endo_pnts.append(points_3D_endo)
+
+    rs_pnts = np.vstack(rs_pnts)
+    endo_pnts = np.vstack(endo_pnts)
+    #optimised_hand_eye, sca = scipy.linalg.orthogonal_procrustes(rs_pnts, endo_pnts)                               
+    R, t, e = orthogonal_procrustes(endo_pnts, rs_pnts)
+
+    optimised_hand_eye = np.eye(4)
+    optimised_hand_eye[:3, :3] = R
+    optimised_hand_eye[:3, 3] = t.T
+
+    return optimised_hand_eye
 
 def calibrate_hand_eye_registration(calibration_data, intrinsics_endo=None, distortion_endo=None, optimise=False):
     T_endo_lst = calibration_data['T_endo']
