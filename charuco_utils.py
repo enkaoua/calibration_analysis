@@ -318,8 +318,8 @@ def calibrate_hand_eye_pnp_reprojection(calibration_data,reprojection_data_df, i
     T_endo_lst = calibration_data['T_endo']
     T_realsense_lst = calibration_data['T_rs']
 
-    hand_eye = calibrate_hand_eye(T_endo_lst, T_realsense_lst)
-    #hand_eye = registration_hand_eye(calibration_data)
+    #hand_eye = calibrate_hand_eye(T_endo_lst, T_realsense_lst)
+    hand_eye = registration_hand_eye(calibration_data)
     
     world2realsense = test_data['T_rs'].values
     objPoints = test_data['objPoints_rs'].values
