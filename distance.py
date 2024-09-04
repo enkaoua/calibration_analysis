@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 import glob
 
-from charuco_utils import perform_analysis
+from charuco_utils import perform_analysis, perform_hand_eye_calibration_analysis
 from utils import T_to_xyz
 import matplotlib.pyplot as plt
 
@@ -67,19 +67,29 @@ def visualise_poses(merged = True):
 
 def main(table_pth='results/hand_eye/raw_corner_data/MC_None_PC_None', 
          cameras=['endo', 'realsense'],
-         chess_sizes=[15, 20, 25, 30], 
+         chess_sizes=[30, 25, 20, 15], 
          poses = [0, 1, 2, 3, 4, 5, 6, 7, 8],
          n=50, 
          repeats=10,
          num_images_step=1,
          visualise_reprojection_error=False,
-         waitTime=0):
+         waitTime=0,
+         HAND_EYE=True):
     
+    if HAND_EYE:
+        table_pth = 'results/hand_eye/split_data/MC_6.0_PC_0.2'
+        file_pth = 'corner_data_calibration_dataset'
+        extension = '_endo'
+    else:
+        table_pth = 'results/hand_eye/raw_corner_data/MC_None_PC_None'
+        file_pth = 'corner_data'
+        extension = ''
+
     poses_lst = poses.copy()
     for camera in cameras:
-        data_df = pd.concat([pd.read_pickle(pth) for pth in glob.glob(f'{table_pth}/*_{camera}_corner_data.pkl')], ignore_index=True)
+        data_df = pd.concat([pd.read_pickle(pth) for pth in glob.glob(f'{table_pth}/*_{camera}_{file_pth}.pkl')], ignore_index=True)
         # add xyz distance from T
-        T_to_xyz(data_df, extension='')
+        T_to_xyz(data_df, extension=extension)
         
         for chess_size in chess_sizes:
             # check range of xyz distances
@@ -105,26 +115,44 @@ def main(table_pth='results/hand_eye/raw_corner_data/MC_None_PC_None',
                     #(data_for_calibration['deg'].isin(angle)) ]
 
                 # round T_z to nearest 10
-                data_df_filtered['T_z'] = np.round(data_df_filtered['T_z'] / 10) * 10
+                data_df_filtered[f'T_z{extension}'] = np.round(data_df_filtered[f'T_z{extension}'] / 10) * 10
 
                 # only select rows with distance z of max occurrences
-                z_max = data_df_filtered['T_z'].mode().values
+                z_max = data_df_filtered[f'T_z{extension}'].mode().values
                 if len(z_max) > 0:
                     z_max = z_max[0]
                 else:
                     poses_lst.remove(pose)
                     continue
-                data_df_filtered[data_df_filtered['T_z']==z_max]
+                data_df_filtered[data_df_filtered[f'T_z{extension}']==z_max]
 
+                # skipping if not enough data
+                if len(data_df_filtered) < n:
+                    poses_lst.remove(pose)
+                    print(f'Not enough data for pose {pose}')
+                    continue
+                if HAND_EYE:
+                    result = perform_hand_eye_calibration_analysis(data_df_filtered,
+                                                          data_for_reprojection,
+                                                          f'results/intrinsics/best_intrinsics',
+                                                          chess_size,
+                                                          repeats=repeats,
+                                                          num_images_start=n,
+                                                          num_images_end=n + 1,
+                                                          num_images_step=num_images_step,
+                                                          visualise_reprojection_error=visualise_reprojection_error,
+                                                          waitTime=waitTime,
+                                                          results_pth='')
 
-                # calculate reprojection error
-                result = perform_analysis(camera,
-                                        data_df_filtered, data_for_reprojection, repeats=repeats,
-                                        num_images_start=n, num_images_end=n + 1,
-                                        num_images_step=num_images_step,
-                                        visualise_reprojection_error=visualise_reprojection_error,
-                                          waitTime=waitTime,
-                                        results_pth='', thread_num=f'{pose}')
+                else:
+                    # calculate reprojection error
+                    result = perform_analysis(camera,
+                                            data_df_filtered, data_for_reprojection, repeats=repeats,
+                                            num_images_start=n, num_images_end=n + 1,
+                                            num_images_step=num_images_step,
+                                            visualise_reprojection_error=visualise_reprojection_error,
+                                            waitTime=waitTime,
+                                            results_pth='', thread_num=f'{pose}')
                 reprojection_errors.append(result['average_error'].values[0])
                 """ results = {'num_images_lst': num_images_lst,
                'errors_lst': error_lst,

@@ -10,9 +10,9 @@ def add_recording_args_to_parser(parser):
                         help='number of samples to use for reprojection error')
     parser.add_argument('--min_num_corners', type=str, default=6.0,
                         help='minimum number of corners to use for calibration')
-    parser.add_argument('--percentage_of_corners', type=str, default=0.5,
+    parser.add_argument('--percentage_of_corners', type=str, default=0.3,
                         help='percentage of corners to use for calibration')
-    parser.add_argument('--visualise_corner_detection', type=bool, default=True,
+    parser.add_argument('--visualise_corner_detection', type=bool, default=False,
                         help='if set to true, will visualise corner detection')
     parser.add_argument('--repeats', type=int, default=10, help='number of repeats per number of images analysis')
     parser.add_argument('--num_images_start', type=int, default=5, help='number of images to start analysis')

@@ -357,7 +357,8 @@ def main_intrinsics(
                                                           num_images_step=num_images_step,
                                                           visualise_reprojection_error=visualise_reprojection_error,
                                                           waitTime=waitTime,
-                                                          results_pth=calibration_analysis_results_save_pth)
+                                                          results_pth=calibration_analysis_results_save_pth,
+                                                          optimise=False)
 
                 else:
                     perform_analysis(camera,

@@ -318,8 +318,8 @@ def calibrate_hand_eye_pnp_reprojection(calibration_data,reprojection_data_df, i
     T_endo_lst = calibration_data['T_endo']
     T_realsense_lst = calibration_data['T_rs']
 
-    #hand_eye = calibrate_hand_eye(T_endo_lst, T_realsense_lst)
-    hand_eye = registration_hand_eye(calibration_data)
+    hand_eye = calibrate_hand_eye(T_endo_lst, T_realsense_lst)
+    #hand_eye = registration_hand_eye(calibration_data)
     
     world2realsense = test_data['T_rs'].values
     objPoints = test_data['objPoints_rs'].values
@@ -342,7 +342,7 @@ def calibrate_hand_eye_pnp_reprojection(calibration_data,reprojection_data_df, i
     # Calculate the median reprojection error
     initial_median_reprojection_error = np.median(initial_reprojection_errors)
 
-    print(f'Initial mean reprojection error: {initial_mean_reprojection_error}')
+    #print(f'Initial mean reprojection error: {initial_mean_reprojection_error}')
 
     if optimise:
        
@@ -404,7 +404,7 @@ def calibrate_hand_eye_pnp_reprojection(calibration_data,reprojection_data_df, i
             #print(f"Iteration {iteration}: Reprojection Error = {mean_reprojection_error:.4f}, {median_reprojection_error:.4f}")
 
 
-            print(f"Iteration {iteration}: Reprojection Error = {current_error:.4f}")
+            #print(f"Iteration {iteration}: Reprojection Error = {current_error:.4f}")
 
             
             # Optional: add a stopping criterion based on the number of iterations
@@ -425,11 +425,11 @@ def calibrate_hand_eye_pnp_reprojection(calibration_data,reprojection_data_df, i
     final_median_reprojection_error = np.median(final_reprojection_errors)
     
     # check if the mean reprojection error is less than the median reprojection error
-    print(f'Initial mean reprojection error: {initial_mean_reprojection_error}')
+    """ print(f'Initial mean reprojection error: {initial_mean_reprojection_error}')
     print(f'Final mean reprojection error: {final_mean_reprojection_error}')
 
     print(f'Initial median reprojection error: {initial_median_reprojection_error}')
-    print(f'Median reprojection error: {final_median_reprojection_error}')
+    print(f'Median reprojection error: {final_median_reprojection_error}') """
     
     if optimise:
         return optimised_hand_eye
