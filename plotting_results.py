@@ -235,13 +235,13 @@ if __name__ == '__main__':
         calibration_pth = 'results/hand_eye'
 
         min_num_corners = 6.0  # if none selected, the percentage of corners is used (with min 6 corners)
-        percentage_of_corners = 0.2
+        percentage_of_corners = 0.3
         threshold = 30
         # analysis parameters
         R = None
-        repeats = 100  # number of repeats per number of images analysis
+        repeats = 10  # number of repeats per number of images analysis
         num_images_start = 5
-        num_images_end = 60
+        num_images_end = 50
         num_images_step = 5
         endo = True
         rs = False
@@ -264,7 +264,7 @@ if __name__ == '__main__':
         shift = [0.3, 0.1]
 
     rec_data = f'MC_{min_num_corners}_PC_{percentage_of_corners}'
-    rec_analysis = f'R{R}_N{num_images_start}_{num_images_end}_{num_images_step}_repeats_{repeats}_{rec_data}'
+    rec_analysis = f'R{R}_N{num_images_start}_{num_images_end}_{num_images_step}_repeats_{repeats}_{rec_data}_no_opt'
 
     main(analysis_pth=f'{calibration_pth}/calibration_analysis/{rec_analysis}')
     # plot_info_as_bar(info_pth=f'{calibration_pth}/raw_corner_data/{rec_data}')

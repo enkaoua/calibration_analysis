@@ -25,9 +25,14 @@ def add_recording_args_to_parser(parser):
                         help='sizes of chessboard used for calibration')
     parser.add_argument('--cameras', type=list, default=['endo', 'realsense'], help='cameras used for calibration')
 
-    parser.add_argument('--results_pth', type=str, default='results/hand_eye', help='path to save results')
+    """ parser.add_argument('--results_pth', type=str, default='results/hand_eye', help='path to save results')
     parser.add_argument('--intrinsics_for_he', type=str,
                         default='results/intrinsics/best_intrinsics', #results/intrinsics/best_intrinsics
+                        help='path to intrinsics results for he') """
+    
+    parser.add_argument('--results_pth', type=str, default='results/intrinsics', help='path to save results')
+    parser.add_argument('--intrinsics_for_he', type=str,
+                        default='', #results/intrinsics/best_intrinsics
                         help='path to intrinsics results for he')
     return parser
 
