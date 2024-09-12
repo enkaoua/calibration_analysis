@@ -25,15 +25,18 @@ def add_recording_args_to_parser(parser):
                         help='sizes of chessboard used for calibration')
     parser.add_argument('--cameras', type=list, default=['endo', 'realsense'], help='cameras used for calibration')
 
-    parser.add_argument('--results_pth', type=str, default='results/hand_eye', help='path to save results')
+    """ parser.add_argument('--results_pth', type=str, default='results/hand_eye', help='path to save results')
     parser.add_argument('--intrinsics_for_he', type=str,
                         default='results/intrinsics/best_intrinsics', #results/intrinsics/best_intrinsics
-                        help='path to intrinsics results for he')
+                        help='path to intrinsics results for he') """
     
     """ parser.add_argument('--results_pth', type=str, default='results/intrinsics', help='path to save results')
     parser.add_argument('--intrinsics_for_he', type=str,
                         default='', #results/intrinsics/best_intrinsics
                         help='path to intrinsics results for he') """
+
+    parser.add_argument('-he','--hand_eye', action='store_false', help='if set to true, will store intrinsics for hand eye') 
+                    
     return parser
 
 
@@ -80,12 +83,17 @@ def main():
     num_images_step = int(args.num_images_step)
     visualise_reprojection_error = bool(args.visualise_reprojection_error)
     waitTime = int(args.waitTime)
-    results_pth = args.results_pth
     chess_sizes = args.chess_sizes
     cameras = args.cameras
 
+    
     # for hand eye, we need intrinsics
-    intrinsics_for_he = args.intrinsics_for_he
+    if args.hand_eye:
+        intrinsics_for_he = 'results/intrinsics/best_intrinsics'
+        results_pth = 'results/hand_eye'
+    else:
+        intrinsics_for_he = ''
+        results_pth = 'results/intrinsics'
 
     main_intrinsics(data_path=data_path,
                     img_ext=img_ext,
