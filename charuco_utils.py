@@ -581,6 +581,9 @@ def he_analysis(data_df, reprojection_data_df, intrinsics_pth, size_chess, waitT
         T_endo_lst = calibration_data['T_endo']
         T_realsense_lst = calibration_data['T_rs']
 
+        # if reprojection_data_df is None, use calibration data as reprojection dataset
+        if reprojection_data_df is None:
+            reprojection_data_df = calibration_data
         #hand_eye = calibrate_hand_eye(T_endo_lst, T_realsense_lst)
         hand_eye = calibrate_hand_eye_pnp_reprojection(calibration_data,reprojection_data_df, intrinsics_endo=intrinsics_endo, distortion_endo=distortion_endo, optimise=optimise, error_threshold=1)
         #hand_eye = calibrate_hand_eye_pnp(calibration_data, intrinsics_endo=intrinsics_endo,intrinsics_rs=intrinsics_rs, distortion_endo=distortion_endo, distortion_rs=distortion_rs)
@@ -617,7 +620,27 @@ def he_analysis(data_df, reprojection_data_df, intrinsics_pth, size_chess, waitT
 
 def perform_hand_eye_calibration_analysis(data_df, reprojection_data_df, intrinsics_pth, size_chess, repeats=1000,
                                           num_images_start=5, num_images_end=60, num_images_step=2, waitTime=1,
-                                          visualise_reprojection_error=False, results_pth='', optimise=True):
+                                          visualise_reprojection_error=False, results_pth='', optimise=True, use_same_dataset_for_reprojection=False):
+    """
+    Perform hand-eye calibration analysis
+    :param data_df:
+    :param reprojection_data_df:
+    :param intrinsics_pth:
+    :param size_chess:
+    :param repeats:
+    :param num_images_start:
+    :param num_images_end:
+    :param num_images_step:
+    :param waitTime:
+    :param visualise_reprojection_error:
+    :param results_pth:
+    :param optimise:
+    :param use_same_dataset_for_reprojection:
+    :return:
+    """
+    # create results folder if it doesn't exist
+    """ if not os.path.exists(results_pth):
+        os.makedirs(results_pth) """
     num_images_lst = np.arange(num_images_start, num_images_end, num_images_step)
 
     average_error_lst = []
@@ -664,8 +687,12 @@ def calibrate_and_evaluate(args):
 
     # sample from calibration dataset however many number of samples we're investigating
     calibration_data, _ = sample_dataset(board_data, total_samples=n)
-    # use all reprojection dataset
-    reprojection_data = R
+    
+    if R is None:
+        reprojection_data = calibration_data
+    else:
+        # use all reprojection dataset
+        reprojection_data = R
 
     # select contents of object points and image points
     imgPoints = calibration_data.imgPoints.values

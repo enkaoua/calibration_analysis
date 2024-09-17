@@ -27,29 +27,37 @@ def load_info(board_size, info_pth='results/raw_corner_data'):
     return info_endo, info_rs
 
 
-def get_average_std(data, threshold=100):
+def get_average_std(data, threshold=100, return_mean=False):
     avg_lst = []
     std_lst = []
+    median_lst = []
     Q1_lst = []
     Q3_lst = []
+    # filter out errors above threshold/ extreme errors outside IQR
     if threshold is None:
-        threshold = np.median(np.array(data))
+        threshold = np.median(np.array(data))+2*np.std(np.array(data))
+        #threshold=20
     for errors in data:
         errors_np = np.array(errors)
 
         e = errors_np[errors_np < threshold]
         if e.size == 0:
             avg_lst.append(threshold)
+            median_lst.append(threshold)
             std_lst.append(threshold)
             Q1_lst.append(threshold)
             Q3_lst.append(threshold)
             continue
-        avg_lst.append(np.percentile(e, 50))  # np.mean(e)
+        median_lst.append(np.percentile(e, 50))  # np.mean(e)
+        avg_lst.append(np.mean(e))  # np.mean(e)
         std_lst.append(np.std(e))
         Q1_lst.append(np.percentile(e, 25))
         Q3_lst.append(np.percentile(e, 75))
 
-    return np.array(avg_lst), np.array(std_lst), Q1_lst, Q3_lst
+    if return_mean:
+        return np.array(avg_lst), np.array(avg_lst)-np.array(std_lst), np.array(avg_lst)+np.array(std_lst)
+    else:
+        return np.array(median_lst), Q1_lst, Q3_lst
 
 
 def plot_with_shaded_error(num_images_lst, data_dict, label, fmt, alpha=0.3, start_val=0, threshold=50,
@@ -59,9 +67,11 @@ def plot_with_shaded_error(num_images_lst, data_dict, label, fmt, alpha=0.3, sta
     if param_to_plot == 'errors_lst':
         errors = data_dict[param_to_plot][start_val:]
 
-        avg_error, std_error, Q1, Q3 = get_average_std(errors, threshold=threshold)
+        avg_error, Q1, Q3 = get_average_std(errors, threshold=threshold,return_mean=False)
         plt.plot(num_images_lst, avg_error, label=label, marker=fmt)
         plt.fill_between(num_images_lst, Q1, Q3, alpha=alpha)
+        """ plt.plot(num_images_lst, Q1, color=plt.gca().lines[-1].get_color(), linestyle='--', alpha=1)
+        plt.plot(num_images_lst, Q3, color=plt.gca().lines[-1].get_color(), linestyle='--', alpha=1) """
         plt.plot(num_images_lst, Q1, color=plt.gca().lines[-1].get_color(), linestyle='--', alpha=1)
         plt.plot(num_images_lst, Q3, color=plt.gca().lines[-1].get_color(), linestyle='--', alpha=1)
     else:
@@ -84,7 +94,7 @@ def plot_with_shaded_error(num_images_lst, data_dict, label, fmt, alpha=0.3, sta
         # plot fx
         # names=['fx', 'fy', 'cx', 'cy']
         # for idx, value_to_plot in enumerate([fx_lst, fy_lst, cx_lst, cy_lst]):
-        avg_error, std_error, Q1, Q3 = get_average_std(param_lst, threshold=None)
+        avg_error, Q1, Q3 = get_average_std(param_lst, threshold=None, return_mean=False)
         plt.plot(num_images_lst, avg_error, label=f'{param_to_plot} {label}', marker=fmt)
         plt.fill_between(num_images_lst, Q1, Q3, alpha=alpha)
         plt.plot(num_images_lst, Q1, color=plt.gca().lines[-1].get_color(), linestyle='--', alpha=1)
@@ -176,7 +186,6 @@ def plot_all_shaded_plots(num_images_lst, data_30, data_25, data_20, data_15, th
         plt.ylabel(f'{param_to_plot}')
     plt.xlabel('Number of Images')
     plt.grid(True)
-    plt.show()
 
 
 def main(analysis_pth=f'results/calibration_analysis/'):
@@ -199,6 +208,10 @@ def main(analysis_pth=f'results/calibration_analysis/'):
         # plot shaded plots
         plot_all_shaded_plots(num_images_lst, endo_data_30, endo_data_25, endo_data_20, endo_data_15,
                               threshold=threshold, param_to_plot='errors_lst', cam='endo')
+        if hand_eye:
+            plt.savefig(f'results/hand_eye_shaded_plot_PC_{percentage_of_corners}_repeats_{repeats}.png')
+        else:
+            plt.savefig(f'results/endo_intrinsics_shaded_plot_PC_{percentage_of_corners}_repeats_{repeats}.png')
         # Line plots with outliers for better visualization
         plot_all_boxplots(num_images_lst, endo_data_30, endo_data_25, endo_data_20, endo_data_15, shift=shift,
                           th_y=th_y, threshold=threshold, param_to_plot='errors_lst', cam='endo')
@@ -214,6 +227,8 @@ def main(analysis_pth=f'results/calibration_analysis/'):
         # plot shaded plots
         plot_all_shaded_plots(num_images_lst, rs_data_30, rs_data_25, rs_data_20, rs_data_15, threshold=threshold,
                               param_to_plot='errors_lst', cam='Realsense')
+        plt.savefig(f'results/rs_intrinsics_shaded_plot_PC_{percentage_of_corners}_repeats_{repeats}.png')
+
         # Line plots with outliers for better visualization
         plot_all_boxplots(num_images_lst, rs_data_30, rs_data_25, rs_data_20, rs_data_15, shift=shift, th_y=th_y,
                           threshold=threshold, param_to_plot='errors_lst', cam='Realsense')
@@ -229,19 +244,19 @@ def main(analysis_pth=f'results/calibration_analysis/'):
 
 
 if __name__ == '__main__':
-    hand_eye = True
+    hand_eye = False
 
     if hand_eye == True:
         calibration_pth = 'results/hand_eye'
 
         min_num_corners = 6.0  # if none selected, the percentage of corners is used (with min 6 corners)
-        percentage_of_corners = 0.3
+        percentage_of_corners = 0.4
         threshold = 30
         # analysis parameters
-        R = None
-        repeats = 10  # number of repeats per number of images analysis
+        R = 0
+        repeats = 1000  # number of repeats per number of images analysis
         num_images_start = 5
-        num_images_end = 50
+        num_images_end = 60
         num_images_step = 5
         endo = True
         rs = False
@@ -249,22 +264,22 @@ if __name__ == '__main__':
 
     else:
         calibration_pth = 'results/intrinsics'
-        min_num_corners = 6
+        min_num_corners = 6.0
         percentage_of_corners = 0.5
         threshold = 2
 
         # analysis parameters
-        R = 100
+        R = 0
         num_images_start = 5
         num_images_end = 60
         num_images_step = 5
-        repeats = 10  # number of repeats per number of images analysis
+        repeats = 100  # number of repeats per number of images analysis
         endo = True
         rs = True
         shift = [0.3, 0.1]
 
     rec_data = f'MC_{min_num_corners}_PC_{percentage_of_corners}'
-    rec_analysis = f'R{R}_N{num_images_start}_{num_images_end}_{num_images_step}_repeats_{repeats}_{rec_data}_no_opt'
+    rec_analysis = f'R{R}_N{num_images_start}_{num_images_end}_{num_images_step}_repeats_{repeats}_{rec_data}'
 
     main(analysis_pth=f'{calibration_pth}/calibration_analysis/{rec_analysis}')
     # plot_info_as_bar(info_pth=f'{calibration_pth}/raw_corner_data/{rec_data}')

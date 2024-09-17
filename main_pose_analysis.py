@@ -246,7 +246,7 @@ if __name__ == '__main__':
     parser.add_argument('-v','--visualise_reprojection_error', type=bool, default=False,
                         help='if set to true, will visualise reprojection error')
     parser.add_argument('-w', '--waitTime', type=int, default=0, help='time to wait before capturing next image')
-    parser.add_argument('-s','--sample_combinations', type=int, default=10, help='number of combinations to sample')
+    parser.add_argument('-s','--sample_combinations', type=int, default=20, help='number of combinations to sample')
     
     # hand eye -- if this is enabled, store as true 
     parser.add_argument('-he','--intrinsics_for_he', action='store_false', help='if set to true, will store intrinsics for hand eye') 

@@ -220,7 +220,7 @@ def main_intrinsics(
     # generate paths where to save table data, split table data and analysis results
     table_pth = f'{results_pth}/raw_corner_data/{rec_data}'
     filtered_table_pth = f'{results_pth}/filtered_data/{rec_filtered_data}'
-    split_table_pth = f'{results_pth}/split_data/{rec_filtered_data}'
+    split_table_pth = f'{results_pth}/split_data/R{reprojection_sample_size}_{rec_filtered_data}'
 
     analysis_results_pth = f'{results_pth}/calibration_analysis/{rec_analysis}'
     create_folders([table_pth, filtered_table_pth, split_table_pth, analysis_results_pth])
@@ -264,16 +264,19 @@ def main_intrinsics(
                                                         intrinsics=intrinsics, distortion=distortion)
             print(f'{camera} {size_chess} table done')
 
+
             # filter data
-            if os.path.isfile(filtered_table_pth):
-                data_df = pd.read_pickle(filtered_table_pth)
+
+            # select minimum number of corners to be detected 
+            charuco_corners_3D = board.getChessboardCorners()  # allCorners3D_np
+            num_chess_corners = len(charuco_corners_3D)  # number_of_corners_per_face
+            selected_min_num_corners = select_min_num_corners(min_num_corners, percentage_of_corners,
+                                                                num_chess_corners)
+            min_num_corners_dict[size_chess] = selected_min_num_corners
+        
+            if os.path.isfile(f'{filtered_table_pth}/{size_chess}_{camera}_corner_data.pkl'):
+                data_df = pd.read_pickle(f'{filtered_table_pth}/{size_chess}_{camera}_corner_data.pkl')
             else:
-                # select minimum number of corners to be detected 
-                charuco_corners_3D = board.getChessboardCorners()  # allCorners3D_np
-                num_chess_corners = len(charuco_corners_3D)  # number_of_corners_per_face
-                selected_min_num_corners = select_min_num_corners(min_num_corners, percentage_of_corners,
-                                                                  num_chess_corners)
-                min_num_corners_dict[size_chess] = selected_min_num_corners
                 # filter whatever is less than min number of samples
                 data_df = data_df[data_df['num_detected_corners'] > selected_min_num_corners]
                 data_df.to_pickle(f'{filtered_table_pth}/{size_chess}_{camera}_corner_data.pkl')
@@ -323,7 +326,10 @@ def main_intrinsics(
             calibration_analysis_results_save_pth = f'{analysis_results_pth}/{size_chess}_{camera}_calibration_data.pkl'
 
             # split the data into reprojection and calibration, and filter out points
-            if os.path.isfile(split_reprojection_dataset_pth) and os.path.isfile(split_calibration_dataset_pth):
+            if reprojection_sample_size==0:
+                remaining_samples = data_df
+                reprojection_data_df = None
+            elif os.path.isfile(split_reprojection_dataset_pth) and os.path.isfile(split_calibration_dataset_pth):
                 reprojection_data_df = pd.read_pickle(split_reprojection_dataset_pth)
                 remaining_samples = pd.read_pickle(split_calibration_dataset_pth)
             else:

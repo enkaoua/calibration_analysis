@@ -6,15 +6,15 @@ def add_recording_args_to_parser(parser):
     parser.add_argument('--data_path', type=str, default='/Users/aure/Documents/CARES/data/massive_calibration_data',
                         help='path to where images uesd for calibration are stored')
     parser.add_argument('--img_ext', type=str, default='png', help='extension of images')
-    parser.add_argument('--reprojection_sample_size', type=int, default=None,
+    parser.add_argument('--reprojection_sample_size', type=int, default=0,
                         help='number of samples to use for reprojection error')
     parser.add_argument('--min_num_corners', type=str, default=6.0,
                         help='minimum number of corners to use for calibration')
-    parser.add_argument('--percentage_of_corners', type=str, default=0.3,
+    parser.add_argument('--percentage_of_corners', type=str, default=0.5,
                         help='percentage of corners to use for calibration')
     parser.add_argument('--visualise_corner_detection', type=bool, default=False,
                         help='if set to true, will visualise corner detection')
-    parser.add_argument('--repeats', type=int, default=10, help='number of repeats per number of images analysis')
+    parser.add_argument('--repeats', type=int, default=100, help='number of repeats per number of images analysis')
     parser.add_argument('--num_images_start', type=int, default=5, help='number of images to start analysis')
     parser.add_argument('--num_images_end', type=int, default=60, help='number of images to end analysis')
     parser.add_argument('--num_images_step', type=int, default=5, help='step size for number of images analysis')
@@ -35,7 +35,7 @@ def add_recording_args_to_parser(parser):
                         default='', #results/intrinsics/best_intrinsics
                         help='path to intrinsics results for he') """
 
-    parser.add_argument('-he','--hand_eye', action='store_false', help='if set to true, will store intrinsics for hand eye') 
+    parser.add_argument('-he','--hand_eye', action='store_true', help='if set to true, will store intrinsics for hand eye') 
                     
     return parser
 

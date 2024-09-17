@@ -85,8 +85,10 @@ def extrinsic_matrix_to_vecs(transformation_matrix):
 
 
 def sample_dataset(df, total_samples=100):
-    # Total samples required
-    # total_samples = 100
+    
+    # if the length of the dataframe is smaller than total_samples, return the entire dataframe and remaining samples is None
+    if len(df) < total_samples:
+        return df, None
 
     # Group by poses and angles
     grouped = df.groupby(['pose', 'deg'])
