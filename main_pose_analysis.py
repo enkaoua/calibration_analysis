@@ -103,6 +103,9 @@ def main_pose_analysis(
     total_run_time_start = time.time()
     # results_all = pd.DataFrame()
     simple_results = []
+
+
+
     for num_poses in tqdm(range(1, len(poses) + 1), desc='Number of Poses'):
         for num_angles in tqdm(range(1, len(angles) + 1), desc='Number of Angles', leave=False):
 
@@ -128,13 +131,39 @@ def main_pose_analysis(
             pose_combinations = list(itertools.combinations(poses, num_poses))
             angle_combinations = list(itertools.combinations(angles, num_angles))
 
+            num_extra_comb = 50 # extra combinations in case some of sample_combinations not have enough images
             if sample_combinations:
                 # pick a random set of n pose and angle combinations out of the above ones
-                if len(pose_combinations) > sample_combinations:
-                    pose_combinations = random.sample(pose_combinations, sample_combinations)
-                if len(angle_combinations) > sample_combinations:
-                    angle_combinations = random.sample(angle_combinations, sample_combinations)
+                if len(pose_combinations) > sample_combinations+num_extra_comb:
+                    pose_combinations = np.array(random.sample(pose_combinations, sample_combinations+num_extra_comb))
+                if len(angle_combinations) > sample_combinations+num_extra_comb:
+                    angle_combinations = np.array(random.sample(angle_combinations, sample_combinations+num_extra_comb))
+                
+                # order the selected pose and angle combinations in terms of descending order of the number of images they have
+                # poses to reject- add to list all combinations of poses and angles which don't have more than num_images in total
+                num_images_found = []
+                possible_combinations = []
+                for pose in pose_combinations:
+                    for angle in angle_combinations:
+                        num_images_for_combination = len(data_for_calibration[
+                            (data_for_calibration['pose'].isin(pose)) &
+                            (data_for_calibration['deg'].isin(angle))
+                        ])
+                        num_images_found.append(num_images_for_combination)
+                        possible_combinations.append((pose, angle))
+                        
+                # order the selected pose and angle combinations in terms of descending order of the number of images they have
+                num_images_found = np.array(num_images_found)
+                # order the selected pose and angle combinations in terms of descending order of the number of images they have
+                sorted_indices = np.argsort(num_images_found)[::-1]
+                # pose and angle combinations is a list of inhomogeneous tuples so order list in terms of indeces
+                possible_combinations = [possible_combinations[i] for i in sorted_indices]
 
+                # only select the top n combinations
+                possible_combinations = possible_combinations[:sample_combinations]
+                
+
+    
             # for each combination of poses and angles filter out the data and calculate error 
 
             """ results_iteration = []
@@ -167,16 +196,19 @@ def main_pose_analysis(
                     reprojection_errors.append(result['average_error']) """
             
             # run non-parallel
-            for pose in tqdm(pose_combinations, desc='Pose Combinations', leave=False):
-                for angle in angle_combinations:
-                    args = (num_images, data_for_calibration, pose, angle, camera, data_for_reprojection, repeats,
-                            num_images_step, visualise_reprojection_error, waitTime, num_poses, num_angles, intrinsics_for_he, size_chess, optimise)
-                    result = process_possible_combinations(args)
-                    if result is None:
-                        continue
-                    results_iteration.append(result)
-                    reprojection_errors.append(result['average_error'])
-            
+            """ for pose in tqdm(pose_combinations, desc='Pose Combinations', leave=False):
+                for angle in angle_combinations: """
+            for possible_combination in tqdm(possible_combinations, desc='Pose Combinations', leave=False):
+                pose = possible_combination[0]
+                angle = possible_combination[0]
+                args = (num_images, data_for_calibration, pose, angle, camera, data_for_reprojection, repeats,
+                        num_images_step, visualise_reprojection_error, waitTime, num_poses, num_angles, intrinsics_for_he, size_chess, optimise)
+                result = process_possible_combinations(args)
+                if result is None:
+                    continue
+                results_iteration.append(result)
+                reprojection_errors.append(result['average_error'])
+        
             # Calculate the overall mean reprojection error for the current combination
             overall_mean_error = np.mean(reprojection_errors)
             # Append results
@@ -240,7 +272,7 @@ if __name__ == '__main__':
     #parser.add_argument('d','--data_pth', type=str, default='results/intrinsics', help='path to where data is found')
     parser.add_argument('-mc','--min_num_corners', type=float, default=6.0,
                         help='minimum number of corners to use for calibration')
-    parser.add_argument('-pc','--percentage_corners', type=float, default=0.2,
+    parser.add_argument('-pc','--percentage_corners', type=float, default=0.4,
                         help='percentage of corners to use for calibration')
     parser.add_argument('-r','--repeats', type=int, default=5, help='number of repeats per number of images analysis')
     parser.add_argument('-v','--visualise_reprojection_error', type=bool, default=False,
@@ -249,9 +281,9 @@ if __name__ == '__main__':
     parser.add_argument('-s','--sample_combinations', type=int, default=20, help='number of combinations to sample')
     
     # hand eye -- if this is enabled, store as true 
-    parser.add_argument('-he','--intrinsics_for_he', action='store_false', help='if set to true, will store intrinsics for hand eye') 
+    parser.add_argument('-he','--intrinsics_for_he', action='store_true', help='if set to true, will store intrinsics for hand eye') 
     # hand eye optimisation
-    parser.add_argument('-opt','--hand_eye_optimisation', action='store_false', help='if set to true, will run hand eye optimisation')
+    parser.add_argument('-opt','--hand_eye_optimisation', action='store_true', help='if set to true, will run hand eye optimisation')
     
     
     args = parser.parse_args()
