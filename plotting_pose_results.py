@@ -52,18 +52,19 @@ def main(pose_results_pth = 'results/hand_eye/pose_analysis/MC_6.0_PC_0.2_size_1
     heatmap_data = R.pivot_table(index='num_poses', columns='num_angles', values='median_reprojection_error')
 
     plt.figure(figsize=(12, 8))
-    sns.heatmap(heatmap_data, annot=True, cmap="YlGnBu", vmin=7, vmax=9)
+    sns.heatmap(heatmap_data, annot=True, cmap="YlGnBu", vmin=vmin, vmax=vmax)
     plt.title('Mean Reprojection Error by Number of Poses and Angles')
     plt.xlabel('Number of Angles')
     plt.ylabel('Number of Poses')
-    plt.savefig(f'{pose_results_pth}/heatmap_second_version.png')
-    #plt.imshow()
+    plt.show()
+    #plt.savefig(f'{pose_results_pth}/heatmap_second_version.png')
+
     return 
 
 
 
 if __name__ == '__main__':
-    hand_eye = True
+    hand_eye = False
 
     if hand_eye == True:
         calibration_pth = 'results/hand_eye'
@@ -79,11 +80,13 @@ if __name__ == '__main__':
         num_images_step = 1
         """ endo = False
         rs = True """
-        cam = 'realsense'
+        cam = 'Ropt'
         shift = [0.3, 0.1]
 
-        sample_combinations=5
+        sample_combinations=10
         chess_size = 30
+        vmin = 7
+        vmax=12
 
     else:
         calibration_pth = 'results/intrinsics'
@@ -104,6 +107,8 @@ if __name__ == '__main__':
         sample_combinations=10
         chess_size = 20
         cam = 'realsense'
+        vmin = 0.7
+        vmax=2
 
     rec_data = f'MC_{min_num_corners}_PC_{percentage_of_corners}'
     rec_analysis = f'R{R}_N{num_images_start}_{num_images_end}_{num_images_step}_repeats_{repeats}_{rec_data}'
