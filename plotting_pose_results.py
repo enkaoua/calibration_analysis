@@ -56,8 +56,8 @@ def main(pose_results_pth = 'results/hand_eye/pose_analysis/MC_6.0_PC_0.2_size_1
     plt.title('Mean Reprojection Error by Number of Poses and Angles')
     plt.xlabel('Number of Angles')
     plt.ylabel('Number of Poses')
-    plt.show()
-    #plt.savefig(f'{pose_results_pth}/heatmap_second_version.png')
+    #plt.show()
+    plt.savefig(f'{pose_results_pth}/heatmap_second_version.png')
 
     return 
 
@@ -104,10 +104,10 @@ if __name__ == '__main__':
         rs = True
         shift = [0.3, 0.1]
 
-        sample_combinations=10
+        sample_combinations=20
         chess_size = 20
         cam = 'realsense'
-        vmin = 0.7
+        vmin = 0.2
         vmax=2
 
     rec_data = f'MC_{min_num_corners}_PC_{percentage_of_corners}'

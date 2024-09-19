@@ -67,19 +67,20 @@ def visualise_poses(merged = True):
 
 def main(table_pth='results/hand_eye/raw_corner_data/MC_None_PC_None', 
          cameras=['realsense', 'endo'],
-         chess_sizes=[ 20,30, 25,20, 15], 
+         chess_sizes=[ 30, 25,20, 15], 
          poses = [0, 1, 2, 3, 4, 5, 6, 7, 8],
-         n=20, 
-         repeats=10,
+         n=30, 
+         repeats=5,
          num_images_step=1,
          visualise_reprojection_error=False,
          waitTime=0,
-         HAND_EYE=False):
+         HAND_EYE=True):
     
     if HAND_EYE:
         table_pth = 'results/hand_eye/split_data/MC_6.0_PC_0.3'
         file_pth = 'corner_data_calibration_dataset'
         extension = '_endo'
+        cameras = ['*']
         distance_analysis = 'results/hand_eye/distance_analysis'
 
     else:
@@ -92,13 +93,14 @@ def main(table_pth='results/hand_eye/raw_corner_data/MC_None_PC_None',
     if not os.path.exists(distance_analysis):
         os.makedirs(distance_analysis)
 
-    poses_lst = poses.copy()
+    
     for camera in cameras:
         data_df = pd.concat([pd.read_pickle(pth) for pth in glob.glob(f'{table_pth}/*_{camera}_{file_pth}.pkl')], ignore_index=True)
         # add xyz distance from T
         T_to_xyz(data_df, extension=extension)
         
         for chess_size in chess_sizes:
+            poses_lst = poses.copy()
 
             # check range of xyz distances
             data_df_chess_size = data_df[data_df['chess_size'] == chess_size]
@@ -136,15 +138,15 @@ def main(table_pth='results/hand_eye/raw_corner_data/MC_None_PC_None',
                 else:
                     poses_lst.remove(pose)
                     continue
-                data_df_filtered[data_df_filtered[f'T_z{extension}']==z_max]
+                data_df_filtered_for_distance = data_df_filtered[data_df_filtered[f'T_z{extension}']==z_max]
 
                 # skipping if not enough data
-                if len(data_df_filtered) < n:
+                if len(data_df_filtered_for_distance) < n:
                     poses_lst.remove(pose)
                     print(f'Not enough data for pose {pose}')
                     continue
                 if HAND_EYE:
-                    result = perform_hand_eye_calibration_analysis(data_df_filtered,
+                    result = perform_hand_eye_calibration_analysis(data_df_filtered_for_distance,
                                                           data_for_reprojection,
                                                           f'results/intrinsics/best_intrinsics',
                                                           chess_size,
@@ -159,7 +161,7 @@ def main(table_pth='results/hand_eye/raw_corner_data/MC_None_PC_None',
                 else:
                     # calculate reprojection error
                     result = perform_analysis(camera,
-                                            data_df_filtered, data_for_reprojection, repeats=repeats,
+                                            data_df_filtered_for_distance, data_for_reprojection, repeats=repeats,
                                             num_images_start=n, num_images_end=n + 1,
                                             num_images_step=num_images_step,
                                             visualise_reprojection_error=visualise_reprojection_error,
@@ -182,25 +184,29 @@ def main(table_pth='results/hand_eye/raw_corner_data/MC_None_PC_None',
                'distortion': all_distortion,
                'average_error': average_error_lst,
                'std_error': std_error_lst} """
-                
+
+            if len(reprojection_errors)<3:
+                continue    
             # plot reprojection error vs pose
-            plt.plot(poses_lst, reprojection_errors)
+            plt.plot(poses_lst, reprojection_errors, label=chess_size)
             # plot shaded plot of Q1 and Q3
             plt.fill_between(poses_lst, Q1s, Q3s, alpha=0.2)
-            plt.plot(poses_lst, Q1s, color='blue', label='Q1')
-            plt.plot(poses_lst, Q3s, color='blue', label='Q3')
-            plt.legend()
-
-
-            plt.xlabel('Pose')
-            plt.ylabel('Reprojection Error')
-            plt.title(f'Reprojection Error vs Pose for {chess_size}mm chessboard for {camera} camera')
-            plt.show()
+            plt.plot(poses_lst, Q1s)
+            plt.plot(poses_lst, Q3s)
+            
 
             results_combined = pd.concat(results_iteration, axis=0)
             # save results for this pose and angle
             results_combined.to_pickle(
                 f'{distance_analysis}/results_P{pose}.pkl')
+            
+        plt.legend()
+
+
+        plt.xlabel('Pose')
+        plt.ylabel('Reprojection Error')
+        plt.title(f'Reprojection Error vs Pose for {chess_size}mm chessboard for {camera} camera')
+        plt.show()
 
                 
                 
