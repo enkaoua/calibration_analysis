@@ -91,16 +91,20 @@ def main_pose_analysis(
 ):
     rec_name = f'MC_{min_num_corners}_PC_{percentage_corners}'
     split_data_pth = f'{data_pth}/split_data/R{R}_{rec_name}'
-    # pth of data to perform calibration
-    data_for_calibration = pd.read_pickle(f'{split_data_pth}/{size_chess}_{camera}_corner_data_calibration_dataset.pkl')
-    data_for_reprojection = pd.read_pickle(f'{split_data_pth}/{size_chess}_{camera}_corner_data_reprojection_dataset.pkl')
-
 
     # add distance to camera parameter
     if len(intrinsics_for_he)>1:
-        extension = f'_{camera}'
+        extension = f'_endo'
+        cam ='endo'
     else:
         extension = ''
+        cam = camera
+    # pth of data to perform calibration
+    data_for_calibration = pd.read_pickle(f'{split_data_pth}/{size_chess}_{cam}_corner_data_calibration_dataset.pkl')
+    data_for_reprojection = pd.read_pickle(f'{split_data_pth}/{size_chess}_{cam}_corner_data_reprojection_dataset.pkl')
+
+
+    
     T_to_xyz(data_for_calibration, extension=extension)
     T_to_xyz(data_for_reprojection, extension=extension)
     # round to nearest 10
@@ -326,7 +330,7 @@ if __name__ == '__main__':
         best_intrinsics_pth = f'results/intrinsics/best_intrinsics'
         data_pth = f'results/hand_eye'
         camera = args.camera
-        percentage_corners = 0.3
+        percentage_corners = args.percentage_corners
         if args.hand_eye_optimisation:
             print('hand eye optimisation')
     else:

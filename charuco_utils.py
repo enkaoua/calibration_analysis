@@ -18,6 +18,25 @@ import concurrent.futures
 ######################################################
 
 
+""" def add_T_column_to_table(data_pkl_pth):
+    
+    # load data
+    data = pd.read_pickle(data_pkl_pth)
+
+    # generate board
+    chess_size = int(data_pkl_pth.split('/')[-1].split('_')[0])
+    board = generate_charuco_board(chess_size)
+    
+    corners = data['imgPoints']
+    ids = 
+    retval, rvec, tvec = cv2.aruco.estimatePoseCharucoBoard(charuco_detected_corners, charuco_detected_ids, board,
+                                                                intrinsics, distortion, None, None)
+    if retval:
+        # add the pose to the list of all poses
+        tag2cam = extrinsic_vecs_to_matrix(rvec, tvec)
+        T_all.append(tag2cam) """
+
+
 def detect_charuco_board_pose_images(board, image_pths, intrinsics, distortion, return_corners=True, min_num_corners=6,
                                      percentage_of_corners=0.2, waiting_time=0, visualise_corner_detection=False):
     """

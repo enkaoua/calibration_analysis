@@ -10,7 +10,7 @@ def add_recording_args_to_parser(parser):
                         help='number of samples to use for reprojection error')
     parser.add_argument('--min_num_corners', type=str, default=6.0,
                         help='minimum number of corners to use for calibration')
-    parser.add_argument('--percentage_of_corners', type=str, default=0.2,
+    parser.add_argument('--percentage_of_corners', type=str, default=0.4,
                         help='percentage of corners to use for calibration')
     parser.add_argument('--visualise_corner_detection', type=bool, default=False,
                         help='if set to true, will visualise corner detection')
@@ -35,7 +35,7 @@ def add_recording_args_to_parser(parser):
                         default='', #results/intrinsics/best_intrinsics
                         help='path to intrinsics results for he') """
 
-    parser.add_argument('-he','--hand_eye', action='store_true', help='if set to true, will store intrinsics for hand eye') 
+    parser.add_argument('-he','--hand_eye', action='store_false', help='if set to true, will store intrinsics for hand eye') 
                     
     return parser
 
