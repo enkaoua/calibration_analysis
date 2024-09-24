@@ -6,11 +6,11 @@ def add_recording_args_to_parser(parser):
     parser.add_argument('--data_path', type=str, default='/Users/aure/Documents/CARES/data/massive_calibration_data',
                         help='path to where images uesd for calibration are stored')
     parser.add_argument('--img_ext', type=str, default='png', help='extension of images')
-    parser.add_argument('--reprojection_sample_size', type=int, default=0,
+    parser.add_argument('--reprojection_sample_size', type=int, default=None,
                         help='number of samples to use for reprojection error')
     parser.add_argument('--min_num_corners', type=str, default=6.0,
                         help='minimum number of corners to use for calibration')
-    parser.add_argument('--percentage_of_corners', type=str, default=0.5,
+    parser.add_argument('--percentage_of_corners', type=str, default=0.2,
                         help='percentage of corners to use for calibration')
     parser.add_argument('--visualise_corner_detection', type=bool, default=False,
                         help='if set to true, will visualise corner detection')

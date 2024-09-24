@@ -13,6 +13,7 @@ import seaborn as sns
 from tqdm.auto import tqdm
 
 from charuco_utils import perform_analysis, perform_hand_eye_calibration_analysis
+from utils import T_to_xyz
 
 
 
@@ -80,6 +81,7 @@ def main_pose_analysis(
         data_pth=f'results/intrinsics',
         min_num_corners=6.0,
         percentage_corners=0.5,
+        R = None,
         repeats=5,
         visualise_reprojection_error=False,
         waitTime=0,
@@ -88,13 +90,40 @@ def main_pose_analysis(
         optimise=True
 ):
     rec_name = f'MC_{min_num_corners}_PC_{percentage_corners}'
-    split_data_pth = f'{data_pth}/split_data/{rec_name}'
+    split_data_pth = f'{data_pth}/split_data/R{R}_{rec_name}'
     # pth of data to perform calibration
-    data_for_calibration = pd.read_pickle(f'{split_data_pth}/{size_chess}_endo_corner_data_calibration_dataset.pkl')
-    data_for_reprojection = pd.read_pickle(f'{split_data_pth}/{size_chess}_endo_corner_data_reprojection_dataset.pkl')
+    data_for_calibration = pd.read_pickle(f'{split_data_pth}/{size_chess}_{camera}_corner_data_calibration_dataset.pkl')
+    data_for_reprojection = pd.read_pickle(f'{split_data_pth}/{size_chess}_{camera}_corner_data_reprojection_dataset.pkl')
+
+
+    # add distance to camera parameter
+    if len(intrinsics_for_he)>1:
+        extension = f'_{camera}'
+    else:
+        extension = ''
+    T_to_xyz(data_for_calibration, extension=extension)
+    T_to_xyz(data_for_reprojection, extension=extension)
+    # round to nearest 10
+    data_for_calibration[f'T_z{extension}'] = np.round(data_for_calibration[f'T_z{extension}'] / 10) * 10
+
+    """ # find most common distance 
+    #distances = data_for_calibration[f'T_z{extension}'].unique().sort
+    z_max = data_for_calibration[f'T_z{extension}'].mode().values
+    if len(z_max) > 0:
+        z_max = z_max[0]
+    else:
+        print('not enough data for this distance')
+    data_for_calibration = data_for_calibration[data_for_calibration[f'T_z{extension}']==z_max] 
+    """
+    grouped_df = data_for_calibration.groupby(f'T_z{extension}').count()
+    grouped_df_filtered = grouped_df[grouped_df['frame_number']>100].reset_index()
+    # grab distances
+    distances = grouped_df_filtered[f'T_z{extension}'].values
+
+    data_for_calibration = data_for_calibration[data_for_calibration[f'T_z{extension}'].isin(distances)]
+
 
     num_images_step = 1
-
     calibration_analysis_results_save_pth = f'{data_pth}/pose_analysis/{rec_name}_size_{size_chess}_cam_{camera}_repeats{repeats}_sample_combinations_{sample_combinations}'
     # create calibration_analysis_results_save_pth if it does not exist
     if not os.path.exists(calibration_analysis_results_save_pth):
@@ -103,8 +132,6 @@ def main_pose_analysis(
     total_run_time_start = time.time()
     # results_all = pd.DataFrame()
     simple_results = []
-
-
 
     for num_poses in tqdm(range(1, len(poses) + 1), desc='Number of Poses'):
         for num_angles in tqdm(range(1, len(angles) + 1), desc='Number of Angles', leave=False):
@@ -131,6 +158,7 @@ def main_pose_analysis(
             pose_combinations = list(itertools.combinations(poses, num_poses))
             angle_combinations = list(itertools.combinations(angles, num_angles))
 
+            
             num_extra_comb = 50 # extra combinations in case some of sample_combinations not have enough images
             if sample_combinations:
                 # pick a random set of n pose and angle combinations out of the above ones
@@ -149,21 +177,25 @@ def main_pose_analysis(
                             (data_for_calibration['pose'].isin(pose)) &
                             (data_for_calibration['deg'].isin(angle))
                         ])
-                        num_images_found.append(num_images_for_combination)
-                        possible_combinations.append((pose, angle))
+                        if num_images_for_combination >10:
+                            num_images_found.append(num_images_for_combination)
+                            possible_combinations.append((pose, angle))
                         
-                # order the selected pose and angle combinations in terms of descending order of the number of images they have
+                """ # order the selected pose and angle combinations in terms of descending order of the number of images they have
                 num_images_found = np.array(num_images_found)
                 # order the selected pose and angle combinations in terms of descending order of the number of images they have
                 sorted_indices = np.argsort(num_images_found)[::-1]
                 # pose and angle combinations is a list of inhomogeneous tuples so order list in terms of indeces
                 possible_combinations = [possible_combinations[i] for i in sorted_indices]
-
+                """
                 # only select the top n combinations
                 possible_combinations = possible_combinations[:sample_combinations]
-                
+                if len(possible_combinations) ==0:
+                    print(f'{pose} {angle} not enough imgs')
 
-    
+                
+            
+            
             # for each combination of poses and angles filter out the data and calculate error 
 
             """ results_iteration = []
@@ -264,11 +296,11 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description='pose analysis ')
 
-    parser.add_argument('-size','--size_chess', type=int, default=30, help='size of chessboard used for calibration')
+    parser.add_argument('-size','--size_chess', type=int, default=20, help='size of chessboard used for calibration')
     parser.add_argument('-n','--num_images', type=int, default=50, help='number of images to start analysis')
     parser.add_argument('-p','--poses', type=list, default=[0, 1, 2, 3, 4, 5, 6, 7, 8], help='poses to analyse')
     parser.add_argument('-a','--angles', type=list, default=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], help='angles to analyse')
-    parser.add_argument('-cam','--camera', type=str, default='realsense', help='camera to analyse')
+    parser.add_argument('-cam','--camera', type=str, default='endo', help='camera to analyse')
     #parser.add_argument('d','--data_pth', type=str, default='results/intrinsics', help='path to where data is found')
     parser.add_argument('-mc','--min_num_corners', type=float, default=6.0,
                         help='minimum number of corners to use for calibration')

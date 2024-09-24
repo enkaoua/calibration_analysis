@@ -71,11 +71,11 @@ def visualise_poses(merged = True):
 
 
 def main(table_pth='results/hand_eye/raw_corner_data/MC_None_PC_None', 
-         cameras=['endo', 'realsense'],
+         cameras=['realsense','endo'],
          chess_sizes=[20,15,25,30], 
-         poses = [0, 1, 2, 3, 4, 5, 6, 7, 8],
+         angles = [0, 1, 2, 3, 4, 5, 6, 7, 8],
          n=20, 
-         repeats=2,
+         repeats=5,
          num_images_step=1,
          visualise_reprojection_error=False,
          waitTime=0,
@@ -101,14 +101,14 @@ def main(table_pth='results/hand_eye/raw_corner_data/MC_None_PC_None',
         table_pth = f'results/hand_eye/filtered_data/{rec_name}'
         file_pth = 'corner_data'
         extension = ''
-        distance_analysis = 'results/intrinsics/distance_analysis'
+        distance_analysis = 'results/intrinsics/angle_distance_analysis'
 
 
     # create folder distance_analysis if it doesn't exist
     if not os.path.exists(distance_analysis):
         os.makedirs(distance_analysis)
 
-    poses_lst = poses.copy()
+    angles_lst = angles.copy()
     for camera in cameras:
         data_df = pd.concat([pd.read_pickle(pth) for pth in glob.glob(f'{table_pth}/*_{camera}_{file_pth}.pkl')], ignore_index=True)
         # add xyz distance from T
@@ -140,17 +140,17 @@ def main(table_pth='results/hand_eye/raw_corner_data/MC_None_PC_None',
             plt.show() """
             
 
-            #pose_combinations = list(itertools.combinations(poses, num_poses))
+            #angle_combinations = list(itertools.combinations(angles, num_angles))
             #distance_combinations = list(itertools.combinations(distances, num_distances))
 
-            #for pose in poses:
+            #for angle in angles:
 
             # only select rows with distance z of max occurrences
             """ z_max = data_df_filtered[f'T_z{extension}'].mode().values
             if len(z_max) > 0:
                 z_max = z_max[0]
             else:
-                poses_lst.remove(pose)
+                angles_lst.remove(angle)
                 continue
             data_df_filtered[data_df_filtered[f'T_z{extension}']==z_max] """
             distances = data_df_chess_size[f'T_z{extension}'].unique().sort
@@ -160,13 +160,12 @@ def main(table_pth='results/hand_eye/raw_corner_data/MC_None_PC_None',
             # grab distances
             distances = grouped_df_filtered[f'T_z{extension}'].values
 
-
             simple_results = []
-            for num_poses in tqdm(range(1, len(poses) + 1), desc='Number of Poses'):
+            for num_angles in tqdm(range(1, len(angles) + 1), desc='Number of angles'):
                 for num_distances in tqdm(range(1, len(distances) + 1), desc='Number of distances', leave=False):
                     
                     # check if pickle file for this already exists
-                    save_pth = f'{distance_analysis_chess}/results_P{num_poses}_distance{num_distances}.pkl'
+                    save_pth = f'{distance_analysis_chess}/results_P{num_angles}_distance{num_distances}.pkl'
                     if os.path.exists(save_pth):
                         # load results and append to simple_results
                         result = pd.read_pickle(save_pth)
@@ -174,74 +173,73 @@ def main(table_pth='results/hand_eye/raw_corner_data/MC_None_PC_None',
                         overall_mean_error = np.mean(reprojection_errors)
                         # Append results
                         simple_results.append({
-                            'num_poses': num_poses,
+                            'num_angles': num_angles,
                             'num_distances': num_distances,
                             'mean_reprojection_error': overall_mean_error
                         })
 
-                        print(f'loading results from pickle file for {num_poses} poses and {num_distances} distances')
+                        print(f'loading results from pickle file for {num_angles} angles and {num_distances} distances')
                         continue
                     
                     
-                    pose_combinations = list(itertools.combinations(poses, num_poses))
+                    angle_combinations = list(itertools.combinations(angles, num_angles))
                     distance_combinations = list(itertools.combinations(distances, num_distances))
 
                     num_extra_comb = 50 # extra combinations in case some of sample_combinations not have enough images
                     if sample_combinations:
-                        # pick a random set of n pose and distance combinations out of the above ones
-                        if len(pose_combinations) > sample_combinations+num_extra_comb:
-                            pose_combinations = np.array(random.sample(pose_combinations, sample_combinations+num_extra_comb))
+                        # pick a random set of n angle and distance combinations out of the above ones
+                        if len(angle_combinations) > sample_combinations+num_extra_comb:
+                            angle_combinations = np.array(random.sample(angle_combinations, sample_combinations+num_extra_comb))
                         if len(distance_combinations) > sample_combinations+num_extra_comb:
                             distance_combinations = np.array(random.sample(distance_combinations, sample_combinations+num_extra_comb))
                         
-                        # order the selected pose and distance combinations in terms of descending order of the number of images they have
-                        # poses to reject- add to list all combinations of poses and distances which don't have more than num_images in total
+                        # order the selected angle and distance combinations in terms of descending order of the number of images they have
+                        # angles to reject- add to list all combinations of angles and distances which don't have more than num_images in total
                         num_images_found = []
                         possible_combinations = []
-                        for pose in pose_combinations:
+                        for angle in angle_combinations:
                             for distance in distance_combinations:
                                 num_images_for_combination = len(data_df_chess_size[
-                                    (data_df_chess_size['pose'].isin(pose)) &
+                                    (data_df_chess_size['deg'].isin(angle)) &
                                     (data_df_chess_size[f'T_z{extension}'].isin(distance))
                                 ])
                                 if num_images_for_combination<3:
                                     continue
                                 num_images_found.append(num_images_for_combination)
-                                possible_combinations.append((pose, distance))
+                                possible_combinations.append((angle, distance))
                                 
-                        # order the selected pose and distance combinations in terms of descending order of the number of images they have
+                        """ # order the selected angle and distance combinations in terms of descending order of the number of images they have
                         num_images_found = np.array(num_images_found)
-                        # order the selected pose and distance combinations in terms of descending order of the number of images they have
+                        # order the selected angle and distance combinations in terms of descending order of the number of images they have
                         sorted_indices = np.argsort(num_images_found)[::-1]
-                        # pose and distance combinations is a list of inhomogeneous tuples so order list in terms of indeces
-                        possible_combinations = [possible_combinations[i] for i in sorted_indices]
+                        # angle and distance combinations is a list of inhomogeneous tuples so order list in terms of indeces
+                        possible_combinations = [possible_combinations[i] for i in sorted_indices] """
 
                         # only select the top n combinations
                         possible_combinations = possible_combinations[:sample_combinations]
                     
-                    """ distances_lst = distances.tolist()
-                    # sort distances list
-                    distances_lst.sort()
-                    reprojection_errors = []
-                    Q1s = []
-                    Q3s = [] """
+                    # only select the top n combinations
+                    possible_combinations = possible_combinations[:sample_combinations]
+                    if len(possible_combinations) ==0:
+                        print(f'{distance} {angle} not enough imgs')
+
                     results_iteration = []
                     reprojection_errors = []
-                    for possible_combination in tqdm(possible_combinations, desc='Pose Combinations', leave=False):
+                    for possible_combination in tqdm(possible_combinations, desc='angle Combinations', leave=False):
                         
-                        pose = possible_combination[0]
+                        angle = possible_combination[0]
                         distance = possible_combination[1]
                 
                 
                 
                     
-                        # filter data_df_filtered by pose selected 
+                        # filter data_df_filtered by angle selected 
                         """ data_df_filtered = data_df_chess_size[
-                            (data_df_chess_size['pose'].isin(pose))] #&
+                            (data_df_chess_size['deg'].isin(angle))] #&
                             #(data_for_calibration['deg'].isin(distance)) ] """
 
                         data_df_filtered_for_distance = data_df_chess_size[
-                                    (data_df_chess_size['pose'].isin(pose)) &
+                                    (data_df_chess_size['deg'].isin(angle)) &
                                     (data_df_chess_size[f'T_z{extension}'].isin(distance))
                                 ]
                         #data_df_filtered_for_distance = data_df_filtered[data_df_filtered[f'T_z{extension}']==distance]
@@ -273,7 +271,7 @@ def main(table_pth='results/hand_eye/raw_corner_data/MC_None_PC_None',
                                                     num_images_step=num_images_step,
                                                     visualise_reprojection_error=visualise_reprojection_error,
                                                     waitTime=waitTime,
-                                                    results_pth='', thread_num=f'{pose}')
+                                                    results_pth='', thread_num=f'{angle}')
                         
                         # get median of errors_lst
                         """ median_err = np.median(result['errors_lst'].values[0])
@@ -291,30 +289,30 @@ def main(table_pth='results/hand_eye/raw_corner_data/MC_None_PC_None',
                     overall_mean_error = np.mean(reprojection_errors)
                     # Append results
                     simple_results.append({
-                        'num_poses': num_poses,
+                        'num_angles': num_angles,
                         'num_distances': num_distances,
                         'mean_reprojection_error': overall_mean_error
                     })
                     results_combined = pd.concat(results_iteration, axis=0)
-                    # save results for this pose and distance
+                    # save results for this angle and distance
                     results_combined.to_pickle(
-                        f'{distance_analysis_chess}/results_P{num_poses}_distance{num_distances}.pkl')
+                        f'{distance_analysis_chess}/results_P{num_angles}_distance{num_distances}.pkl')
 
             #total_run_time_end = time.time()
             #print(f'Total run time: {(total_run_time_end - total_run_time_start) / 60} minutes')
             # Convert results to a dataframe
             simple_results_df = pd.DataFrame(simple_results)
-            # load and merge all dataframes of all poses and distances
+            # load and merge all dataframes of all angles and distances
             # simple_results_df = pd.concat([pd.read_pickle(pth) for pth in glob.glob(f'{calibration_analysis_results_save_pth}/results_P*_A*.pkl') ], ignore_index=True)
 
             # Visualize results as a heatmap
-            heatmap_data = simple_results_df.pivot(index='num_poses', columns='num_distances', values='mean_reprojection_error')
+            heatmap_data = simple_results_df.pivot(index='num_angles', columns='num_distances', values='mean_reprojection_error')
 
             plt.figure(figsize=(12, 8))
             sns.heatmap(heatmap_data, annot=True, cmap="YlGnBu")
-            plt.title('Mean Reprojection Error by Number of Poses and distances')
+            plt.title('Mean Reprojection Error by Number of angles and distances')
             plt.xlabel('Number of distances')
-            plt.ylabel('Number of Poses')
+            plt.ylabel('Number of angles')
             plt.savefig(f'{distance_analysis_chess}/heatmap.png')
                 
 
@@ -328,5 +326,5 @@ def main(table_pth='results/hand_eye/raw_corner_data/MC_None_PC_None',
 
 
 if __name__=='__main__': 
-    #visualise_poses(merged = False)
+    #visualise_angles(merged = False)
     main() 
