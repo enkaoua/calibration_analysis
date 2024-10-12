@@ -7,14 +7,14 @@ def add_recording_args_to_parser(parser):
                         help='path to where images uesd for calibration are stored')
     parser.add_argument('--img_ext', type=str, default='png', help='extension of images')
     parser.add_argument('--reprojection_sample_size', type=int, default=None,
-                        help='number of samples to use for reprojection error')
+                        help='number of samples to use for reprojection error. If a number is selected, a random number of the same board dataset is selected. If None is selected, the dataset of all other boards is used for reprojection error. If ')
     parser.add_argument('--min_num_corners', type=str, default=6.0,
                         help='minimum number of corners to use for calibration')
-    parser.add_argument('--percentage_of_corners', type=str, default=0.4,
+    parser.add_argument('--percentage_of_corners', type=str, default=0.5,
                         help='percentage of corners to use for calibration')
     parser.add_argument('--visualise_corner_detection', type=bool, default=False,
                         help='if set to true, will visualise corner detection')
-    parser.add_argument('--repeats', type=int, default=100, help='number of repeats per number of images analysis')
+    parser.add_argument('--repeats', type=int, default=1000, help='number of repeats per number of images analysis')
     parser.add_argument('--num_images_start', type=int, default=5, help='number of images to start analysis')
     parser.add_argument('--num_images_end', type=int, default=60, help='number of images to end analysis')
     parser.add_argument('--num_images_step', type=int, default=5, help='step size for number of images analysis')
@@ -35,7 +35,7 @@ def add_recording_args_to_parser(parser):
                         default='', #results/intrinsics/best_intrinsics
                         help='path to intrinsics results for he') """
 
-    parser.add_argument('-he','--hand_eye', action='store_false', help='if set to true, will store intrinsics for hand eye') 
+    parser.add_argument('-he','--hand_eye', action='store_true', help='if set to true, will store intrinsics for hand eye') 
                     
     return parser
 
@@ -59,6 +59,7 @@ def main():
     add_recording_args_to_parser(parser)
     # grabbing args selected
     args = parser.parse_args()
+
 
     data_path = args.data_path
     img_ext = args.img_ext
@@ -94,6 +95,28 @@ def main():
     else:
         intrinsics_for_he = ''
         results_pth = 'results/intrinsics'
+
+    # print all params to check if correct
+    if args.hand_eye:
+        print('-----------------------HAND EYE analysis-----------------------')
+    else:
+        print('-----------------------INTRINSICS analysis-----------------------')
+    print('data_path: ', data_path)
+    print('img_ext: ', img_ext)
+    print('reprojection_sample_size: ', reprojection_sample_size)
+    print('min_num_corners: ', min_num_corners)
+    print('percentage_of_corners: ', percentage_of_corners)
+    print('visualise_corner_detection: ', visualise_corner_detection)
+    print('repeats: ', repeats)
+    print('num_images_start: ', num_images_start)
+    print('num_images_end: ', num_images_end)
+    print('num_images_step: ', num_images_step)
+    print('visualise_reprojection_error: ', visualise_reprojection_error)
+    print('chess_sizes: ', chess_sizes)
+    print('cameras: ', cameras)
+    print('results_pth: ', results_pth)
+    print('intrinsics_for_he: ', intrinsics_for_he)
+
 
     main_intrinsics(data_path=data_path,
                     img_ext=img_ext,

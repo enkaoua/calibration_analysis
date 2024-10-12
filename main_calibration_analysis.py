@@ -11,8 +11,9 @@ from utils import create_folders, filter_and_merge_hand_eye_df, find_best_intrin
     select_min_num_corners
 
 
-def generate_board_table(image_pths, board, table_data_pth, table_info_pth, min_num_corners=6,
-                         percentage_of_corners=0.2, waiting_time=1,
+def generate_board_table(image_pths, board, table_data_pth, table_info_pth, 
+                         #min_num_corners=1, percentage_of_corners=0.2, 
+                         waiting_time=1,
                          intrinsics=None, distortion=None, visualise_corner_detection=False):
     """
     Generate a table of the detected chessboard corners data in the world coordinate system.
@@ -22,6 +23,7 @@ def generate_board_table(image_pths, board, table_data_pth, table_info_pth, min_
     'imgPoints': detected points in 2D image space
     'objPoints: detected points in 3D charuco space
     'num_detected_corners': number of detected corners
+    'ids': ids of detected corners (allIDs3D_np_sorted_filtered)
     'chess_size': size of chessboard squares
     'pose': which pose of the 9 possible grid poses this is (0-8)
     'deg': which possible angle of the 11 it is (0-10)
@@ -30,7 +32,6 @@ def generate_board_table(image_pths, board, table_data_pth, table_info_pth, min_
 
     and if we are doing hand-eye, we would also have:
     'T': transform pose between board and camera
-    'ids': ids of detected corners (allIDs3D_np_sorted_filtered)
     }
 
     There is also an info file saved with the following as a csv file:
@@ -41,19 +42,20 @@ def generate_board_table(image_pths, board, table_data_pth, table_info_pth, min_
     if intrinsics is not None and distortion is not None:
         # this will also return board pose information (for hand-eye calibration)
         updated_image_pths, min_corners, T, imgPoints, objPoints, num_detected_corners, ids = detect_charuco_board_pose_images(
-            board, image_pths, intrinsics, distortion, return_corners=True, min_num_corners=min_num_corners,
-            percentage_of_corners=percentage_of_corners, waiting_time=waiting_time,
-            visualise_corner_detection=visualise_corner_detection)
+            board, image_pths, intrinsics, distortion, return_corners=True,
+             # min_num_corners=1, # min_num_corners set to 1 for raw images percentage_of_corners=percentage_of_corners, 
+            waiting_time=waiting_time, visualise_corner_detection=visualise_corner_detection)
     else:
         # for intrinsics calibration
-        updated_image_pths, imgPoints, objPoints, num_detected_corners, min_corners = detect_corners_charuco_cube_images(
-            board, image_pths, min_num_corners=min_num_corners, percentage_of_corners=percentage_of_corners,
+        updated_image_pths, min_corners,   imgPoints, objPoints, num_detected_corners, ids,  = detect_corners_charuco_cube_images(
+            board, image_pths, return_corners=True,
+            #min_num_corners=min_num_corners, percentage_of_corners=percentage_of_corners,
             waiting_time=waiting_time, visualise_corner_detection=visualise_corner_detection)
 
     # convert updated image paths- split path to get: [image number, pose number, degree number, going forward or backward]
     # convert to pandas dataframe
     data = {'paths': updated_image_pths, 'imgPoints': imgPoints, 'objPoints': objPoints,
-            'num_detected_corners': num_detected_corners}
+            'num_detected_corners': num_detected_corners, 'ids':ids}
     data_df = pd.DataFrame(data=data)
     # adding columns to describe pose, chess size, degree, direction
     data_df[['chess_size', 'pose', 'deg', 'direction']] = data_df['paths'].str.extract(
@@ -66,7 +68,6 @@ def generate_board_table(image_pths, board, table_data_pth, table_info_pth, min_
     # if intrinsics path, we want to also add the board pose
     if intrinsics is not None and distortion is not None:
         data_df['T'] = T
-        data_df['ids'] = ids
 
     # save original number of images and the number of images with detected corners aswell as the number of corners detected in total
     original_number_of_images = len(image_pths)
@@ -193,6 +194,7 @@ def main_hand_eye(data_path='/Users/aure/Documents/CARES/data/massive_calibratio
  """
 
 def main_intrinsics(
+        
         data_path='/Users/aure/Documents/CARES/data/massive_calibration_data',
         img_ext='png',
         reprojection_sample_size=None,
@@ -211,6 +213,53 @@ def main_intrinsics(
         cameras=['endo', 'realsense'],
 
         intrinsics_for_he=''):
+    """
+    Perform intrinsic calibration analysis on a set of images.
+        Args:
+            data_path (str): 
+                Path to the directory containing calibration data.
+            img_ext (str): 
+                Image file extension (e.g., 'png', 'jpg').
+            reprojection_sample_size (int, optional): 
+                Number of samples for reprojection. 
+                If None, all samples of other boards are used.
+                If number is given, that number of images is randomly selected from the same board dataset (evenly across angles and positions)
+                If number is 0, the same dataset that was used for calibration will be used for reprojection 
+            min_num_corners (int, optional): 
+                Minimum number of corners to be detected. If None, the percentage is used.
+            percentage_of_corners (float): Percentage of corners to be detected if min_num_corners is None.
+                If both min_num_corners and percentage_of_corners are none, the min number of corners is 1. 
+                If only the percentage corners is specified, we take the percentage_of_corners.
+                If only the min corners is specified, we ake that as the number
+                If both are specified, we take the larger one.
+            
+            visualise_corner_detection (bool): 
+                Whether to visualize corner detection.
+            repeats (int): 
+                Number of repeats per number of images analysis.
+            num_images_start (int): 
+                Starting number of images for analysis.
+            num_images_end (int): 
+                Ending number of images for analysis.
+            num_images_step (int): 
+                Step size for the number of images in the analysis.
+            visualise_reprojection_error (bool): 
+                Whether to visualize reprojection error.
+            waitTime (int): 
+                Wait time for visualization.
+            results_pth (str): 
+                Path to save the results.
+            chess_sizes (list): 
+                List of chessboard sizes to be used in the analysis.
+            cameras (list): 
+                List of camera names to be used in the analysis.
+            intrinsics_for_he (str): 
+                Path to the directory containing intrinsic parameters for hand-eye calibration.
+        Returns:
+            None
+    """
+
+    # CREATING FOLDERS WHERE TO SAVE DATA 
     # name of recording (MC- min num of corners, PC- percentage of corners) to be used for generated data (raw and filtered)
     rec_data = f'MC_None_PC_None'
     rec_filtered_data = f'MC_{min_num_corners}_PC_{percentage_of_corners}'
@@ -240,6 +289,7 @@ def main_intrinsics(
                 f'{data_path}/{size_chess}_charuco/pose*/acc_{size_chess}_pos*_deg*_*/raw/he_calibration_images/hand_eye_{camera}/*.{img_ext}')
             board = generate_charuco_board(size_chess)
 
+            # load rough intrinsics for when calculating hand eye
             if len(intrinsics_for_he) > 0:
                 """ intrinsics, distortion = find_best_intrinsics(intrinsics_for_he, size_chess, camera,
                                                               save_path=f'results/intrinsics/best_intrinsics') """
@@ -252,21 +302,20 @@ def main_intrinsics(
                 HAND_EYE = False
 
             # board data table generation
-            # generate the board data by detecting the corners in the images or load previously generated data
+            # generate the board data by detecting the corners in the images or load previously generated data if exists
             if os.path.isfile(table_data_pth) and os.path.isfile(table_info_pth):
                 data_df = pd.read_pickle(table_data_pth)
-                info_df = pd.read_csv(table_info_pth)
+                #info_df = pd.read_csv(table_info_pth)
             else:
-                data_df, info_df = generate_board_table(image_pths, board, table_data_pth, table_info_pth,
-                                                        min_num_corners=None, percentage_of_corners=None,
+                # creates table of detected corners for all images with at least one corner detected
+                data_df, _ = generate_board_table(image_pths, board, table_data_pth, table_info_pth,
+                                                        #min_num_corners=None, percentage_of_corners=None,
                                                         waiting_time=waitTime,
                                                         visualise_corner_detection=visualise_corner_detection,
                                                         intrinsics=intrinsics, distortion=distortion)
             print(f'{camera} {size_chess} table done')
 
-
-            # filter data
-
+            # FILTER DATA
             # select minimum number of corners to be detected 
             charuco_corners_3D = board.getChessboardCorners()  # allCorners3D_np
             num_chess_corners = len(charuco_corners_3D)  # number_of_corners_per_face
@@ -285,16 +334,17 @@ def main_intrinsics(
     print('########### MERGING DATA ###################')
     # for HE- merge endo and realsense data and further filter if necessary
     if HAND_EYE == True:
+        # load all filtered data of all boards for realsense and endo
         all_data_df_endo = pd.concat(
             [pd.read_pickle(data_pth) for data_pth in glob.glob(f'{filtered_table_pth}/*_endo_corner_data.pkl')],
             ignore_index=True)
         all_data_df_realsense = pd.concat(
             [pd.read_pickle(data_pth) for data_pth in glob.glob(f'{filtered_table_pth}/*_realsense_corner_data.pkl')],
             ignore_index=True)
+        # merge endo and rs data for each board
         for size_chess in tqdm(chess_sizes, desc='chess_sizes', leave=True):
             data_df_endo = all_data_df_endo[all_data_df_endo['chess_size'] == size_chess]
             data_df_realsense = all_data_df_realsense[all_data_df_realsense['chess_size'] == size_chess]
-            # FILTER TABLES AND MERGE
             min_num_corners = min_num_corners_dict[size_chess]
             # combined dataframe
             data_df = filter_and_merge_hand_eye_df(data_df_endo, data_df_realsense, min_num_corners)
@@ -315,18 +365,20 @@ def main_intrinsics(
 
         for size_chess in tqdm(chess_sizes, desc='chess_sizes', leave=True):
             print(f'analysis for chess {size_chess} ')
-
+            # Select data for specific chess size
             data_df = all_data_df[all_data_df['chess_size'] == size_chess]
 
             # split filtered data (table filtered data just split into reprojection and calibration)
             split_reprojection_dataset_pth = f'{split_table_pth}/{size_chess}_{camera}_corner_data_reprojection_dataset.pkl'
             split_calibration_dataset_pth = f'{split_table_pth}/{size_chess}_{camera}_corner_data_calibration_dataset.pkl'
 
-            # analysis data (['errros', 'intrinsics', 'distortion', 'average_error', 'std_error'])
+            # analysis data (['errors', 'intrinsics', 'distortion', 'average_error', 'std_error'])
             calibration_analysis_results_save_pth = f'{analysis_results_pth}/{size_chess}_{camera}_calibration_data.pkl'
 
+            # SPLIT DATA
             # split the data into reprojection and calibration, and filter out points
             if reprojection_sample_size==0:
+                # will use same dataset for calibration and reprojection
                 remaining_samples = data_df
                 reprojection_data_df = None
             elif os.path.isfile(split_reprojection_dataset_pth) and os.path.isfile(split_calibration_dataset_pth):
@@ -338,7 +390,7 @@ def main_intrinsics(
                     remaining_samples = data_df
                     reprojection_data_df = all_data_df[all_data_df['chess_size'] != size_chess]
                 else:
-                    # sample dataset to split to reprojection and calibration
+                    # sample dataset to split to reprojection and calibration with size of reprojection dataset is reprojection_sample_size
                     reprojection_data_df, remaining_samples = sample_dataset(data_df,
                                                                              total_samples=reprojection_sample_size)
                 # save the selected samples
@@ -346,6 +398,7 @@ def main_intrinsics(
                 remaining_samples.to_pickle(split_calibration_dataset_pth)
             print(f'table done for camera {camera}, size_chess {size_chess}')
 
+            # PERFORM CALIBRATION
             if os.path.isfile(calibration_analysis_results_save_pth):
                 calibration_data_df = pd.read_pickle(calibration_analysis_results_save_pth)
             else:
@@ -364,7 +417,7 @@ def main_intrinsics(
                                                           visualise_reprojection_error=visualise_reprojection_error,
                                                           waitTime=waitTime,
                                                           results_pth=calibration_analysis_results_save_pth,
-                                                          optimise=False)
+                                                          optimise=True)
 
                 else:
                     perform_analysis(camera,

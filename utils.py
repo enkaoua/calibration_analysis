@@ -232,9 +232,9 @@ def filter_and_merge_hand_eye_df(data_df_endo, data_df_realsense, min_num_corner
     # Drop the info key column 
     data_df_endo.drop(columns=['combined_info', 'num_detected_corners'], inplace=True)
     # data_df_realsense.drop(columns=['combined_info'], inplace=True)
-    data_df_realsense.drop(columns=['combined_info', 'num_detected_corners'], inplace=False)
+    data_df_realsense.drop(columns=['combined_info', 'num_detected_corners'], inplace=True) #inplace used to do operation in place (instead of returning copy) and return None.
 
-    # merge endo and rs into one dataframe
+    # merge endo and rs into one dataframe and add suffixes (_endo or _rs) to 
     common_columns = ['chess_size', 'pose', 'deg', 'direction', 'frame_number']
     data_df_combined = pd.merge(
         data_df_endo,
@@ -265,13 +265,12 @@ def filter_and_merge_hand_eye_df(data_df_endo, data_df_realsense, min_num_corner
         imgPoints_matched_rs, objPoints_matched_endo, ids_endo_2, ids_rs_2 = sort_and_filter_matched_corners(pnts_rs, pnts_3d_endo,
                                                                                                          ids_r, ids_e,
                                                                                                          return_ids=True)
-
         if len(imgPoints_matched_endo) < min_num_corners:
             # remove row from dataframe if the number of points is less than the minimum number of corners
             data_df_combined.drop(row_idx, inplace=True)
             removed_ids.append(row_idx)
         else:
-            # update the dataframe
+            # update the dataframe with matched corners and their ids
             data_df_combined.at[row_idx, 'imgPoints_endo'] = imgPoints_matched_endo
             data_df_combined.at[row_idx, 'imgPoints_rs'] = imgPoints_matched_rs
             data_df_combined.at[row_idx, 'objPoints_rs'] = objPoints_matched_rs
@@ -283,7 +282,30 @@ def filter_and_merge_hand_eye_df(data_df_endo, data_df_realsense, min_num_corner
 
 
 def select_min_num_corners(min_num_corners, percentage_of_corners, num_chess_corners):
-    # None for both, min num corners as 0
+    """
+    Selects the minimum number of corners based on the provided criteria.
+    This function determines the minimum number of corners to be used based on either a fixed minimum number,
+    a percentage of the total number of chessboard corners, or both. The function prioritizes the larger value
+    when both criteria are provided.
+    Parameters:
+        min_num_corners (int or None): The minimum number of corners specified. 
+        If None, the function will use the percentage_of_corners.
+    percentage_of_corners (float or None): 
+        The percentage of the total number of chessboard corners to be used. 
+        If None, the function will use min_num_corners.
+    num_chess_corners (int): 
+        The total number of chessboard corners.
+    Returns:
+    int: The determined minimum number of corners based on the provided criteria.
+    If both are none, the min number of corners is 1. 
+    If only the percentage corners is specified, we take the percentage_of_corners.
+    If only the min corners is specified, we ake that as the number
+    If both are specified, we take the larger one.
+    """
+    
+    
+    
+    # None for both, min num corners as 1
     if min_num_corners is None and percentage_of_corners is None:
         min_num_corners = 1
     # only percentage of corners specified, we take percentage_of_corners
@@ -298,3 +320,45 @@ def select_min_num_corners(min_num_corners, percentage_of_corners, num_chess_cor
         if min_num_corners_by_percentage > min_num_corners:
             min_num_corners = min_num_corners_by_percentage
     return min_num_corners
+
+
+def get_average_std(data, threshold=100, return_mean=False):
+    """
+    Computes the average, standard deviation, median, and quartiles of a list of data.
+    Parameters:
+        data (list): A list of data points. Each element in the list is a list of errors. 
+        threshold (float): A threshold value to filter out outliers.
+        return_mean (bool): If True, the function will return the mean and std of the data. If False, the function will return the median and IQR
+    Returns:
+        tuple: A tuple containing the average, standard deviation OR the median, and quartiles of the data.
+    """
+    avg_lst = []
+    std_lst = []
+    median_lst = []
+    Q1_lst = []
+    Q3_lst = []
+    # filter out errors above threshold/ extreme errors outside IQR
+    if threshold is None:
+        threshold = np.median(np.array(data))+2*np.std(np.array(data))
+        #threshold=20
+    for errors in data:
+        errors_np = np.array(errors)
+
+        e = errors_np[errors_np < threshold]
+        if e.size == 0:
+            avg_lst.append(threshold)
+            median_lst.append(threshold)
+            std_lst.append(threshold)
+            Q1_lst.append(threshold)
+            Q3_lst.append(threshold)
+            continue
+        median_lst.append(np.percentile(e, 50))  # np.mean(e)
+        avg_lst.append(np.mean(e))  # np.mean(e)
+        std_lst.append(np.std(e))
+        Q1_lst.append(np.percentile(e, 25))
+        Q3_lst.append(np.percentile(e, 75))
+
+    if return_mean:
+        return np.array(avg_lst), np.array(avg_lst)-np.array(std_lst), np.array(avg_lst)+np.array(std_lst)
+    else:
+        return np.array(median_lst), Q1_lst, Q3_lst

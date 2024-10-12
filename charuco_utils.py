@@ -7,7 +7,7 @@ import glob
 from sksurgerycore.algorithms.procrustes import orthogonal_procrustes
 import scipy
 from tqdm import tqdm
-from utils import calculate_transform_average, extrinsic_matrix_to_vecs, extrinsic_vecs_to_matrix, find_best_intrinsics, \
+from utils import calculate_transform_average, extrinsic_matrix_to_vecs, extrinsic_vecs_to_matrix, find_best_intrinsics, get_average_std, \
     reprojection_error, sample_dataset, select_min_num_corners, sort_and_filter_matched_corners
 import pandas as pd
 import concurrent.futures
@@ -37,8 +37,10 @@ import concurrent.futures
         T_all.append(tag2cam) """
 
 
-def detect_charuco_board_pose_images(board, image_pths, intrinsics, distortion, return_corners=True, min_num_corners=6,
-                                     percentage_of_corners=0.2, waiting_time=0, visualise_corner_detection=False):
+def detect_charuco_board_pose_images(board, image_pths, intrinsics, distortion, return_corners=True, waiting_time=0, visualise_corner_detection=False
+                                     #  min_num_corners=6,
+                                     #percentage_of_corners=0.2, 
+                                     ):
     """
     function to detect corners in a list of images given a board
     Parameters
@@ -47,10 +49,10 @@ def detect_charuco_board_pose_images(board, image_pths, intrinsics, distortion, 
         board to use for detection
     image_pths : list of strings
         list of paths to images to detect corners in 
-    min_num_corners : int
-        minimum number of corners to detect in an image for it to be saved (default=6)
-    waiting_time : int
-        time to wait for a new frame in ms
+    intrinsics: 3x3 np with 
+        camera intrinsics
+    distortion: 1x5 np array 
+        cam dist params
 
     """
 
@@ -72,7 +74,8 @@ def detect_charuco_board_pose_images(board, image_pths, intrinsics, distortion, 
     charuco_ids_3D = np.arange(0, num_chess_corners)  # all3DIDs_np
 
     # select minimum number of corners to be detected 
-    min_num_corners = select_min_num_corners(min_num_corners, percentage_of_corners, num_chess_corners)
+    #min_num_corners = select_min_num_corners(min_num_corners, percentage_of_corners, num_chess_corners)
+    min_num_corners = 1
 
     # detect corners in images
     for image_pth in image_pths:
@@ -328,25 +331,21 @@ def hand_eye_objective(params, world2realsense, objPoints, imgPoints, intrinsics
 
 def calibrate_hand_eye_pnp_reprojection(calibration_data,reprojection_data_df, intrinsics_endo=None, distortion_endo=None, optimise = True, error_threshold = 1):
 
-    test_data , _ = sample_dataset(reprojection_data_df, total_samples=100)
+    # PERFORM HAND-EYE
+    #T_endo_lst = calibration_data['T_endo']
+    #T_realsense_lst = calibration_data['T_rs']
+    #hand_eye = calibrate_hand_eye(T_endo_lst, T_realsense_lst)
+    hand_eye = registration_hand_eye(calibration_data)
     
-    #imgPoints_endo = calibration_data['imgPoints_endo'].values
-    #img_points_rs = calibration_data['imgPoints_rs'].values
-    #calibration_data = calibration_data
-    #obj_points  = calibration_data['objPoints_rs'].values
-    T_endo_lst = calibration_data['T_endo']
-    T_realsense_lst = calibration_data['T_rs']
-
-    hand_eye = calibrate_hand_eye(T_endo_lst, T_realsense_lst)
-    #hand_eye = registration_hand_eye(calibration_data)
-    
+    # OPTIMISE HAND-EYE
+    #test_data , _ = sample_dataset(reprojection_data_df, total_samples=100)
+    test_data = calibration_data
     world2realsense = test_data['T_rs'].values
     objPoints = test_data['objPoints_rs'].values
     imgPoints = test_data['imgPoints_endo'].values
     #endo_reprojection_images_pth = calibration_data['paths_endo'].values
     
     # convert all arrays in world2realsense to float 32
-    #world2realsense = world2realsense.astype(np.float32)
     world2realsense_d32 = []
     for i in range(len(world2realsense)):
         world2realsense_d32.append(world2realsense[i].astype(np.float32))
@@ -359,8 +358,7 @@ def calibrate_hand_eye_pnp_reprojection(calibration_data,reprojection_data_df, i
     # Calculate the initial mean reprojection error
     initial_mean_reprojection_error = np.mean(initial_reprojection_errors)
     # Calculate the median reprojection error
-    initial_median_reprojection_error = np.median(initial_reprojection_errors)
-
+    #initial_median_reprojection_error = np.median(initial_reprojection_errors)
     #print(f'Initial mean reprojection error: {initial_mean_reprojection_error}')
 
     if optimise:
@@ -379,9 +377,8 @@ def calibrate_hand_eye_pnp_reprojection(calibration_data,reprojection_data_df, i
             # ensure all inputs are .astype(dtype=np.float32)
             intrinsics_endo = intrinsics_endo.astype(dtype=np.float32)
             distortion_endo = distortion_endo.astype(dtype=np.float32)
-            # Optimize the hand-eye transformation
             
-            
+            # Optimize the hand-eye transformation      
             result = scipy.optimize.least_squares(
                 fun=hand_eye_objective,
                 x0=initial_params,
@@ -391,18 +388,16 @@ def calibrate_hand_eye_pnp_reprojection(calibration_data,reprojection_data_df, i
                 diff_step=1e-6,
                 ftol = 1e-9,
                 max_nfev = 1000,
-
-
-                
             )
             
-            
+            # get the optimised parameters
             optimised_params = result.x
             optimised_rvec = optimised_params[:3]
             optimised_tvec = optimised_params[3:6]
             # Convert back to 4x4 matrix
             optimised_hand_eye = extrinsic_vecs_to_matrix(optimised_rvec, optimised_tvec)
             
+            #  Update the initial parameters for the next iteration
             initial_params = optimised_params
 
             # Calculate the current reprojection error
@@ -415,16 +410,6 @@ def calibrate_hand_eye_pnp_reprojection(calibration_data,reprojection_data_df, i
 
             # Calculate the mean reprojection error
             current_error = np.mean(reprojection_errors)
-            # Calculate the median reprojection error
-            # current_error = np.median(reprojection_errors)
-            # check if the mean reprojection error is less than the median reprojection error
-            
-            #current_error = mean_reprojection_error
-            #print(f"Iteration {iteration}: Reprojection Error = {mean_reprojection_error:.4f}, {median_reprojection_error:.4f}")
-
-
-            #print(f"Iteration {iteration}: Reprojection Error = {current_error:.4f}")
-
             
             # Optional: add a stopping criterion based on the number of iterations
             if iteration > 1000:  # Example: stop after 1000 iterations to avoid infinite loop
@@ -433,7 +418,7 @@ def calibrate_hand_eye_pnp_reprojection(calibration_data,reprojection_data_df, i
 
         
         hand_eye = optimised_hand_eye
-    # Calculate the final reprojection error
+    """ # Calculate the final reprojection error
     final_reprojection_errors = calculate_hand_eye_reprojection_error(
         hand_eye, world2realsense, objPoints, imgPoints, intrinsics_endo, distortion_endo
     )
@@ -441,7 +426,7 @@ def calibrate_hand_eye_pnp_reprojection(calibration_data,reprojection_data_df, i
     # Calculate the mean reprojection error
     final_mean_reprojection_error = np.mean(final_reprojection_errors)
     # Calculate the median reprojection error
-    final_median_reprojection_error = np.median(final_reprojection_errors)
+    final_median_reprojection_error = np.median(final_reprojection_errors) """
     
     # check if the mean reprojection error is less than the median reprojection error
     """ print(f'Initial mean reprojection error: {initial_mean_reprojection_error}')
@@ -581,34 +566,34 @@ def calibrate_hand_eye_registration(calibration_data, intrinsics_endo=None, dist
     return hand_eye
 
 def he_analysis(data_df, reprojection_data_df, intrinsics_pth, size_chess, waitTime=1, n=10, repeats=1000,
-                visualise_reprojection_error=False, optimise=True):
+                visualise_reprojection_error=False, optimise=True, return_calibration_data=True):
     
-    #intrinsics_endo, distortion_endo = find_best_intrinsics(intrinsics_pth, size_chess, 'endo')
     intrinsics_endo = np.loadtxt(f'{intrinsics_pth}/{size_chess}_endo_intrinsics.txt')
     distortion_endo = np.loadtxt(f'{intrinsics_pth}/{size_chess}_endo_distortion.txt')
-    intrinsics_rs = np.loadtxt(f'{intrinsics_pth}/{size_chess}_realsense_intrinsics.txt')
-    distortion_rs = np.loadtxt(f'{intrinsics_pth}/{size_chess}_realsense_distortion.txt')
     
     hand_eye_lst = []
     errors = []
+    all_calibration_data = []
     for i in tqdm(range(repeats), desc='hand-eye calibration', leave=False):
         
-        # sample n images from the dataset
+        # SELECT DATASET/IMAGES FOR CALIBRATION AND REPROJECTION
+        # sample n images from the dataset (number of images we are testing)
         calibration_data, _ = sample_dataset(data_df, total_samples=n)
-
-        # hand-eye calibration
-        T_endo_lst = calibration_data['T_endo']
-        T_realsense_lst = calibration_data['T_rs']
-
         # if reprojection_data_df is None, use calibration data as reprojection dataset
         if reprojection_data_df is None:
             reprojection_data_df = calibration_data
+        
+        # CALIBRATE
+        # hand-eye calibration
+        #T_endo_lst = calibration_data['T_endo']
+        #T_realsense_lst = calibration_data['T_rs']
         #hand_eye = calibrate_hand_eye(T_endo_lst, T_realsense_lst)
         hand_eye = calibrate_hand_eye_pnp_reprojection(calibration_data,reprojection_data_df, intrinsics_endo=intrinsics_endo, distortion_endo=distortion_endo, optimise=optimise, error_threshold=1)
         #hand_eye = calibrate_hand_eye_pnp(calibration_data, intrinsics_endo=intrinsics_endo,intrinsics_rs=intrinsics_rs, distortion_endo=distortion_endo, distortion_rs=distortion_rs)
         #hand_eye = calibrate_he_opencv(calibration_data)
         #hand_eye = calibrate_hand_eye_registration(calibration_data, intrinsics_endo=intrinsics_endo, distortion_endo=distortion_endo, optimise=optimise)
         
+        # EVALUATE REPROJECTION ERROR
         # reprojection error
         world2realsense = reprojection_data_df['T_rs'].values
         objPoints = reprojection_data_df['objPoints_rs'].values
@@ -619,60 +604,69 @@ def he_analysis(data_df, reprojection_data_df, intrinsics_pth, size_chess, waitT
             endo_reprojection_images_pth = reprojection_data_df['paths_endo'].values
         else:
             endo_reprojection_images_pth = []
+        
         err_np = calculate_hand_eye_reprojection_error(hand_eye, world2realsense,
                                                        objPoints, imgPoints,
                                                        intrinsics_endo, distortion_endo,
                                                        waitTime=waitTime,
                                                        endo_reprojection_images_pth=endo_reprojection_images_pth)
-        # calculating mean reprojection error between all images
-        mean_err = pd.DataFrame(err_np).mean()[0]
-        median_err = pd.DataFrame(err_np).median()[0]
+        
+        # calculating mean reprojection error between all images.
+        reprojection_error_mean_final = pd.DataFrame(err_np).median()[0]
+        """ mean_err = pd.DataFrame(err_np).mean()[0]
         if mean_err - median_err > 0.5:
             reprojection_error_mean_final = median_err
         else:
-            reprojection_error_mean_final = mean_err
+            reprojection_error_mean_final = mean_err """
+        
         errors.append(reprojection_error_mean_final)
         hand_eye_lst.append(hand_eye)
+        all_calibration_data.append(calibration_data)
 
+    if return_calibration_data:
+        return errors, hand_eye_lst, all_calibration_data
     return errors, hand_eye_lst
 
 
 def perform_hand_eye_calibration_analysis(data_df, reprojection_data_df, intrinsics_pth, size_chess, repeats=1000,
                                           num_images_start=5, num_images_end=60, num_images_step=2, waitTime=1,
-                                          visualise_reprojection_error=False, results_pth='', optimise=True, use_same_dataset_for_reprojection=False):
+                                          visualise_reprojection_error=False, results_pth='', optimise=True):
     """
-    Perform hand-eye calibration analysis
-    :param data_df:
-    :param reprojection_data_df:
-    :param intrinsics_pth:
-    :param size_chess:
-    :param repeats:
-    :param num_images_start:
-    :param num_images_end:
-    :param num_images_step:
-    :param waitTime:
-    :param visualise_reprojection_error:
-    :param results_pth:
-    :param optimise:
-    :param use_same_dataset_for_reprojection:
-    :return:
+    Perform hand-eye calibration analysis to evaluate reprojection error for different number of image samples and board types
+    :param data_df: dataframe containing calibration data
+    :param reprojection_data_df: dataframe containing reprojection data
+    :param intrinsics_pth: path to intrinsics folder
+    :param size_chess: size of chessboard
+    :param repeats: number of repeats for each number of images
+    :param num_images_start: start number of images 
+    :param num_images_end: end number of images
+    :param num_images_step: step size for number of images
+    :param waitTime: time to wait for user input
+    :param visualise_reprojection_error: whether to visualise reprojection error
+    :param results_pth: path to save results
+    :param optimise: whether to optimise hand-eye calibration
+
+    :return: average reprojection error for each number of images
+    
     """
     # create results folder if it doesn't exist
     """ if not os.path.exists(results_pth):
         os.makedirs(results_pth) """
     num_images_lst = np.arange(num_images_start, num_images_end, num_images_step)
 
-    average_error_lst = []
     error_lst = []
-    all_hand_eye = []
+    average_error_lst = []
     std_error_lst = []
+    all_hand_eye = []
     num_corners_detected_lst = []
+    calibration_data_lst = []
+
     for num_images in tqdm(num_images_lst, desc='number of images', leave=False):
-        errors_lst, hand_eye_lst = he_analysis(data_df, reprojection_data_df,
+        errors_lst, hand_eye_lst, calibration_data = he_analysis(data_df, reprojection_data_df,
                                                intrinsics_pth, size_chess,
                                                waitTime=waitTime, n=num_images, repeats=repeats,
                                                visualise_reprojection_error=visualise_reprojection_error,
-                                               optimise=optimise)
+                                               optimise=optimise, return_calibration_data=True)
 
         num_corners_detected = data_df['num_detected_corners'].sum()
 
@@ -681,6 +675,9 @@ def perform_hand_eye_calibration_analysis(data_df, reprojection_data_df, intrins
         std_error_lst.append(np.std(errors_lst))
         all_hand_eye.append(hand_eye_lst)
         num_corners_detected_lst.append(num_corners_detected)
+        calibration_data_lst.append(calibration_data)
+
+
 
     # save intrinsics, distortion and errors
     data = {'num_images_lst': num_images_lst,
@@ -688,7 +685,8 @@ def perform_hand_eye_calibration_analysis(data_df, reprojection_data_df, intrins
             'num_corners_detected_lst': num_corners_detected_lst,
             'hand_eye': all_hand_eye,
             'average_error': average_error_lst,
-            'std_error': std_error_lst}
+            'std_error': std_error_lst,
+            'calibration_data': calibration_data_lst}
     data_df = pd.DataFrame(data=data)
 
     # save dataframe
@@ -907,8 +905,11 @@ def calculate_reprojection_error(mtx, dist, objPoints, imgPoints, image_pths=Non
     return reprojection_error_mean_final
 
 
-def detect_corners_charuco_cube_images(board, image_pths, min_num_corners=6, percentage_of_corners=0.2, waiting_time=0,
-                                       visualise_corner_detection=False):
+def detect_corners_charuco_cube_images(board, image_pths,  return_corners=True, waiting_time=0,
+                                       visualise_corner_detection=False
+                                       # min_num_corners=6, percentage_of_corners=0.2, 
+                                       ):
+   
     """
     function to detect corners in a list of images given a board
     Parameters
@@ -917,12 +918,10 @@ def detect_corners_charuco_cube_images(board, image_pths, min_num_corners=6, per
         board to use for detection
     image_pths : list of strings
         list of paths to images to detect corners in 
-    min_num_corners : int
-        minimum number of corners to detect in an image for it to be saved (default=6)
-    waiting_time : int
-        time to wait for a new frame in ms
-
+    
     """
+    # min_num_corners : int (minimum number of corners to detect in an image for it to be saved (default=6)
+    #waiting_time : int (time to wait for a new frame in ms
 
     if len(image_pths) == 0:
         raise (f'no images found')
@@ -930,6 +929,8 @@ def detect_corners_charuco_cube_images(board, image_pths, min_num_corners=6, per
     imgPoints = []
     objPoints = []
     num_detected_corners = []
+    ids_all = []
+    
     updated_image_pths = image_pths.copy()
     parameters = cv2.aruco.DetectorParameters()
     dictionary = board.getDictionary()
@@ -940,7 +941,8 @@ def detect_corners_charuco_cube_images(board, image_pths, min_num_corners=6, per
     charuco_ids_3D = np.arange(0, num_chess_corners)  # all3DIDs_np
 
     # select minimum number of corners to be detected 
-    min_num_corners = select_min_num_corners(min_num_corners, percentage_of_corners, num_chess_corners)
+    #min_num_corners = select_min_num_corners(min_num_corners, percentage_of_corners, num_chess_corners)
+    min_num_corners = 1
 
     # detect corners in images
     for image_pth in tqdm(image_pths, desc='image paths', leave=False):
@@ -976,13 +978,18 @@ def detect_corners_charuco_cube_images(board, image_pths, min_num_corners=6, per
         # add the detected charuco corners to the list of all charuco corners
         imgPoints.append(charuco_detected_corners)
         num_detected_corners.append(len(charuco_detected_corners))
+        ids_all.append(charuco_detected_ids)
         # find the corresponding 3D pnts
         _, allCorners3D_np_sorted_filtered = sort_and_filter_matched_corners(charuco_detected_corners.squeeze(),
                                                                              charuco_corners_3D, charuco_detected_ids,
                                                                              charuco_ids_3D)
         objPoints.append(allCorners3D_np_sorted_filtered.reshape(-1, 1, 3))
 
-    return updated_image_pths, imgPoints, objPoints, num_detected_corners, min_num_corners  # image.shape[0:-1]
+    
+    if return_corners:
+        return updated_image_pths, min_num_corners, imgPoints, objPoints, num_detected_corners, ids_all  # rvec, tvec,
+    return updated_image_pths, min_num_corners, ids_all  # image.shape[0:-1]
+
 
 
 def calibrate_charuco_board(
