@@ -1,15 +1,18 @@
 
 
 
+import os
 from utils import find_best_intrinsics
 import glob
 import numpy as np
 
-def main(data_pth = 'results/intrinsics/calibration_analysis/',
+def find_and_save_best_intrinsics(data_pth = 'results/intrinsics/calibration_analysis/',
         cameras=['endo', 'realsense'], 
          chess_sizes= [15,20,25,30],
          save_path = f'results/intrinsics/best_intrinsics'): 
-    
+    # create save pth if doesnt exist
+    if not os.path.exists(save_path):
+        os.makedirs(save_path)
     best_intrinsics = None
     best_distortion = None
     best_error = np.inf
@@ -42,4 +45,9 @@ def main(data_pth = 'results/intrinsics/calibration_analysis/',
 
 
 if __name__=='__main__': 
-    main() 
+    find_and_save_best_intrinsics(
+        data_pth = 'results/intrinsics/calibration_analysis/',
+        cameras=['endo', 'realsense'], 
+         chess_sizes= [15,20,25,30],
+         save_path = f'results/intrinsics/best_intrinsics'
+    ) 

@@ -75,7 +75,7 @@ def detect_charuco_board_pose_images(board, image_pths, intrinsics, distortion, 
 
     # select minimum number of corners to be detected 
     #min_num_corners = select_min_num_corners(min_num_corners, percentage_of_corners, num_chess_corners)
-    min_num_corners = 1
+    min_num_corners = 6 # has to be 6 minimum as DLT algorithm needs at least 6 points for pose estimation from 3D-2D point correspondences.
 
     # detect corners in images
     for image_pth in image_pths:
@@ -668,7 +668,7 @@ def perform_hand_eye_calibration_analysis(data_df, reprojection_data_df, intrins
                                                visualise_reprojection_error=visualise_reprojection_error,
                                                optimise=optimise, return_calibration_data=True)
 
-        num_corners_detected = data_df['num_detected_corners'].sum()
+        num_corners_detected = data_df['num_corners_detected'].sum()
 
         error_lst.append(errors_lst)
         average_error_lst.append(np.mean(errors_lst))

@@ -7,6 +7,8 @@ from tqdm import tqdm
 
 from charuco_utils import detect_charuco_board_pose_images, detect_corners_charuco_cube_images, generate_charuco_board, \
     perform_hand_eye_calibration_analysis, perform_analysis
+from find_best_intrinsic import find_and_save_best_intrinsics
+from plotting_results import plot_calibration_analysis_results
 from utils import create_folders, filter_and_merge_hand_eye_df, find_best_intrinsics, sample_dataset, \
     select_min_num_corners
 
@@ -212,7 +214,8 @@ def main_intrinsics(
         chess_sizes=[15, 20, 25, 30],  # 15, 20, 25, 30,
         cameras=['endo', 'realsense'],
 
-        intrinsics_for_he=''):
+        intrinsics_for_he='',
+        optimise=True):
     """
     Perform intrinsic calibration analysis on a set of images.
         Args:
@@ -294,6 +297,12 @@ def main_intrinsics(
                 """ intrinsics, distortion = find_best_intrinsics(intrinsics_for_he, size_chess, camera,
                                                               save_path=f'results/intrinsics/best_intrinsics') """
                 
+                # check if intrinsics and distortion exist, otherwise create them 
+                if not os.path.exists(f'{intrinsics_for_he}/{size_chess}_{camera}_intrinsics.txt') and not os.path.exists(f'{intrinsics_for_he}/{size_chess}_{camera}_distortion.txt'):
+                    find_and_save_best_intrinsics(data_pth = 'results/intrinsics/calibration_analysis/',
+                            cameras=['endo', 'realsense'], 
+                            chess_sizes= [15,20,25,30],
+                            save_path = f'{intrinsics_for_he}')
                 intrinsics = np.loadtxt(f'{intrinsics_for_he}/{size_chess}_{camera}_intrinsics.txt')
                 distortion = np.loadtxt(f'{intrinsics_for_he}/{size_chess}_{camera}_distortion.txt')
                 HAND_EYE = True
@@ -334,6 +343,7 @@ def main_intrinsics(
     print('########### MERGING DATA ###################')
     # for HE- merge endo and realsense data and further filter if necessary
     if HAND_EYE == True:
+        
         # load all filtered data of all boards for realsense and endo
         all_data_df_endo = pd.concat(
             [pd.read_pickle(data_pth) for data_pth in glob.glob(f'{filtered_table_pth}/*_endo_corner_data.pkl')],
@@ -343,6 +353,10 @@ def main_intrinsics(
             ignore_index=True)
         # merge endo and rs data for each board
         for size_chess in tqdm(chess_sizes, desc='chess_sizes', leave=True):
+            # check if file exists already
+            if os.path.isfile(f'{filtered_table_pth}/{size_chess}_merged_corner_data.pkl'):
+                continue
+            # filter data for each board size
             data_df_endo = all_data_df_endo[all_data_df_endo['chess_size'] == size_chess]
             data_df_realsense = all_data_df_realsense[all_data_df_realsense['chess_size'] == size_chess]
             min_num_corners = min_num_corners_dict[size_chess]
@@ -417,7 +431,7 @@ def main_intrinsics(
                                                           visualise_reprojection_error=visualise_reprojection_error,
                                                           waitTime=waitTime,
                                                           results_pth=calibration_analysis_results_save_pth,
-                                                          optimise=True)
+                                                          optimise=optimise)
 
                 else:
                     perform_analysis(camera,
@@ -435,52 +449,26 @@ def main_intrinsics(
         if HAND_EYE:
             break
 
-        """ 
-    for size_chess in tqdm(chess_sizes, desc='chess_sizes', leave=True):
-        
-        #data_df = pd.read_pickle(f'{filtered_table_pth}/{size_chess}_{camera}_corner_data.pkl')
-        data_df_endo = all_data_df_endo[all_data_df['chess_size']==size_chess]
-        data_df_realsense = all_data_df_realsense[all_data_df['chess_size']==size_chess]
 
-        # FILTER TABLES AND MERGE
-        min_num_corners = min_num_corners_dict[size_chess]
-        data_df_combined = filter_and_merge_hand_eye_df(data_df_endo, data_df_realsense, min_num_corners)
-        # Split to reprojection and calibration
-        # filtered data (table data just split into reprojection and calibration)
-        filtered_reprojection_dataset_pth = f'{filtered_table_pth}/{size_chess}_merged_corner_data_reprojection_dataset.pkl'
-        filtered_calibration_dataset_pth = f'{filtered_table_pth}/{size_chess}_merged_corner_data_calibration_dataset.pkl'
-        if os.path.isfile(filtered_reprojection_dataset_pth) and os.path.isfile(filtered_calibration_dataset_pth):
-            reprojection_data_df = pd.read_pickle(filtered_reprojection_dataset_pth)
-            remaining_samples = pd.read_pickle(filtered_calibration_dataset_pth)
-        else:
-            # sample dataset to split to reprojection and calibration
-            reprojection_data_df, remaining_samples  = sample_dataset(data_df_combined, total_samples=reprojection_sample_size)
-            # save the selected samples
-            reprojection_data_df.to_pickle(filtered_reprojection_dataset_pth)
-            remaining_samples.to_pickle(filtered_calibration_dataset_pth)
-
-        ###### HAND-EYE CALIBRATION ######
-        # analysis data (['errros', 'intrinsics', 'distortion', 'average_error', 'std_error'])
-        calibration_analysis_results_save_pth = f'{analysis_results_pth}/{size_chess}_{camera}_calibration_data.pkl'
-
-        if os.path.isfile(calibration_analysis_results_save_pth):
-            calibration_data_df = pd.read_pickle(calibration_analysis_results_save_pth)
-        else:
-            # perform calibration analysis
-            perform_hand_eye_calibration_analysis(remaining_samples, 
-                                                        reprojection_data_df, 
-                                                        intrinsics_pth, 
-                                                        size_chess, repeats=repeats, 
-                                                        num_images_start=num_images_start, 
-                                                        num_images_end=num_images_end, 
-                                                        num_images_step=num_images_step,  
-                                                        waitTime=waitTime, 
-                                                        visualise_reprojection_error=visualise_reprojection_error, 
-                                                        results_pth=calibration_analysis_results_save_pth)
-            
-        print(f'analysis done for camera {camera}, size_chess {size_chess}')
-    """
-
+    # PLOT AND SAVE RESULTS
+    plot_endo=True
+    plot_rs=True
+    if HAND_EYE:
+        threshold = 30
+        plot_rs = False
+    else:
+        threshold = 2
+    plot_calibration_analysis_results(hand_eye=HAND_EYE, 
+                                      calibration_pth = results_pth, 
+                                      min_num_corners=min_num_corners, 
+                                      percentage_of_corners=percentage_of_corners, 
+                                      repeats=repeats, threshold=threshold, 
+                                      endo=plot_endo, rs=plot_rs, shift=[0.3, 0.1],
+                                      R=None, 
+                                      num_images_start=num_images_start,
+                                      num_images_end=num_images_end,
+                                      num_images_step=num_images_step,
+                                      ) 
     return
 
 

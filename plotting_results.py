@@ -188,7 +188,20 @@ def plot_all_shaded_plots(num_images_lst, data_30, data_25, data_20, data_15, th
     plt.grid(True)
 
 
-def main(analysis_pth=f'results/calibration_analysis/'):
+def plot_calibration_analysis_results(hand_eye=False, 
+                                      calibration_pth=f'results/calibration_analysis/', 
+                                      min_num_corners=6.0, 
+                                      percentage_of_corners=0.4, 
+                                      repeats=1000, threshold=2, 
+                                      endo=True, rs=True, shift=[0.3, 0.1],
+                                      R=None, 
+                                      num_images_start=5,
+                                      num_images_end=60,
+                                      num_images_step=5,
+                                      ):
+    rec_data = f'MC_{min_num_corners}_PC_{percentage_of_corners}'
+    rec_analysis = f'R{R}_N{num_images_start}_{num_images_end}_{num_images_step}_repeats_{repeats}_{rec_data}'
+    analysis_pth=f'{calibration_pth}/calibration_analysis/{rec_analysis}'
     # load all results
 
     # results_df = results_df.sort_values(by=['size_chess', 'camera'])
@@ -244,7 +257,7 @@ def main(analysis_pth=f'results/calibration_analysis/'):
 
 
 if __name__ == '__main__':
-    hand_eye = False
+    """ hand_eye = False
 
     if hand_eye == True:
         calibration_pth = 'results/hand_eye'
@@ -253,7 +266,7 @@ if __name__ == '__main__':
         percentage_of_corners = 0.4
         threshold = 30
         # analysis parameters
-        R = 0
+        R = None
         repeats = 1000  # number of repeats per number of images analysis
         num_images_start = 5
         num_images_end = 60
@@ -269,17 +282,18 @@ if __name__ == '__main__':
         threshold = 2
 
         # analysis parameters
-        R = 0
+        R = None
         num_images_start = 5
         num_images_end = 60
         num_images_step = 5
-        repeats = 100  # number of repeats per number of images analysis
+        repeats = 1000  # number of repeats per number of images analysis
         endo = True
         rs = True
         shift = [0.3, 0.1]
 
     rec_data = f'MC_{min_num_corners}_PC_{percentage_of_corners}'
     rec_analysis = f'R{R}_N{num_images_start}_{num_images_end}_{num_images_step}_repeats_{repeats}_{rec_data}'
-
-    main(analysis_pth=f'{calibration_pth}/calibration_analysis/{rec_analysis}')
+    """
+   
+    plot_calibration_analysis_results(analysis_pth=f'{calibration_pth}/calibration_analysis/{rec_analysis}')
     # plot_info_as_bar(info_pth=f'{calibration_pth}/raw_corner_data/{rec_data}')
