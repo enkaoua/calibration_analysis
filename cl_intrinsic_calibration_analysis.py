@@ -92,10 +92,13 @@ def main():
     if args.hand_eye:
         intrinsics_for_he = 'results/intrinsics/best_intrinsics'
         results_pth = 'results/hand_eye'
-        optimise=True
+
     else:
         intrinsics_for_he = ''
         results_pth = 'results/intrinsics'
+    
+    
+    optimise=True
 
     # print all params to check if correct
     if args.hand_eye:

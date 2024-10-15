@@ -338,8 +338,8 @@ def calibrate_hand_eye_pnp_reprojection(calibration_data,reprojection_data_df, i
     hand_eye = registration_hand_eye(calibration_data)
     
     # OPTIMISE HAND-EYE
-    #test_data , _ = sample_dataset(reprojection_data_df, total_samples=100)
-    test_data = calibration_data
+    test_data , _ = sample_dataset(reprojection_data_df, total_samples=100)
+    #test_data = calibration_data
     world2realsense = test_data['T_rs'].values
     objPoints = test_data['objPoints_rs'].values
     imgPoints = test_data['imgPoints_endo'].values
