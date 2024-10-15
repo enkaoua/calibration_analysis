@@ -2,7 +2,7 @@ import argparse
 
 from main_calibration_analysis import main_intrinsics
 
-def add_recording_args_to_parser(parser):
+def add_analysis_args_to_parser(parser):
     parser.add_argument('--data_path', type=str, default='/Users/aure/Documents/CARES/data/massive_calibration_data',
                         help='path to where images uesd for calibration are stored')
     parser.add_argument('--img_ext', type=str, default='png', help='extension of images')
@@ -56,7 +56,7 @@ def main():
             ')
 
     # adding all necessary args for cl app
-    add_recording_args_to_parser(parser)
+    add_analysis_args_to_parser(parser)
     # grabbing args selected
     args = parser.parse_args()
 
@@ -117,6 +117,7 @@ def main():
     print('cameras: ', cameras)
     print('results_pth: ', results_pth)
     print('intrinsics_for_he: ', intrinsics_for_he)
+    print('optimise: ', optimise)
 
 
     main_intrinsics(data_path=data_path,
