@@ -112,7 +112,7 @@ def num_angles_num_distances_analysis(table_pth='results/hand_eye/raw_corner_dat
         param_filter_name = 'deg'
     else:
         params = [0, 1, 2, 3, 4, 5, 6, 7, 8]
-        params_filter_name = 'pose'
+        param_filter_name = 'pose'
 
     print(f'################## {param_we_are_testing.capitalize()} DISTANCE ANALYSIS Hand_eye => {HAND_EYE} ##################')
     print('')
@@ -351,11 +351,11 @@ def add_distance_analysis_args_to_parser(parser):
     parser.add_argument('--chess_sizes', type=list, default=[20, 25, 30, 15],
                         help='sizes of chessboard used for calibration')
     #parser.add_argument('-a','--angles', type=list, default=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], help='angles to analyse')
-    parser.add_argument('-t_param','--param_we_are_testing', type=str, default='angle', help='angle or position')
+    parser.add_argument('-t_param','--param_we_are_testing', type=str, default='pose', help='angle or position')
 
     parser.add_argument('--repeats', type=int, default=20, help='number of repeats per number of images analysis')
     
-    parser.add_argument('--num_images', type=int, default=5, help='number of images to start analysis')
+    parser.add_argument('--num_images', type=int, default=30, help='number of images to start analysis')
     parser.add_argument('--sample_combinations', type=int, default=5, help='number of combinations to be used when testing x num angles/distances')
 
     parser.add_argument('--reprojection_sample_size', type=int, default=None,

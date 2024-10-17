@@ -332,10 +332,10 @@ def hand_eye_objective(params, world2realsense, objPoints, imgPoints, intrinsics
 def calibrate_hand_eye_pnp_reprojection(calibration_data,reprojection_data_df, intrinsics_endo=None, distortion_endo=None, optimise = True, error_threshold = 1):
 
     # PERFORM HAND-EYE
-    #T_endo_lst = calibration_data['T_endo']
-    #T_realsense_lst = calibration_data['T_rs']
-    #hand_eye = calibrate_hand_eye(T_endo_lst, T_realsense_lst)
-    hand_eye = registration_hand_eye(calibration_data)
+    T_endo_lst = calibration_data['T_endo']
+    T_realsense_lst = calibration_data['T_rs']
+    hand_eye = calibrate_hand_eye(T_endo_lst, T_realsense_lst)
+    #hand_eye = registration_hand_eye(calibration_data)
     
     # OPTIMISE HAND-EYE
     test_data , _ = sample_dataset(reprojection_data_df, total_samples=100)
