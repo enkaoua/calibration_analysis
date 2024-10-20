@@ -333,7 +333,7 @@ def num_angles_num_distances_analysis(table_pth='results/hand_eye/raw_corner_dat
             # simple_results_df = pd.concat([pd.read_pickle(pth) for pth in glob.glob(f'{calibration_analysis_results_save_pth}/results_P*_A*.pkl') ], ignore_index=True)
 
             # Visualize results as a heatmap
-            heatmap_data = simple_results_df.pivot(index=f'num_{param_we_are_testing}', columns='num_distances', values='mean_reprojection_error')
+            heatmap_data = simple_results_df.pivot(index=f'num_{param_we_are_testing}s', columns='num_distances', values='mean_reprojection_error')
 
             plt.figure(figsize=(12, 8))
             sns.heatmap(heatmap_data, annot=True, cmap="YlGnBu")
@@ -351,12 +351,12 @@ def add_distance_analysis_args_to_parser(parser):
     parser.add_argument('--chess_sizes', type=list, default=[20, 25, 30, 15],
                         help='sizes of chessboard used for calibration')
     #parser.add_argument('-a','--angles', type=list, default=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], help='angles to analyse')
-    parser.add_argument('-t_param','--param_we_are_testing', type=str, default='pose', help='angle or position')
+    parser.add_argument('-t_param','--param_we_are_testing', type=str, default='angle', help='angle or position')
 
     parser.add_argument('--repeats', type=int, default=20, help='number of repeats per number of images analysis')
     
-    parser.add_argument('--num_images', type=int, default=30, help='number of images to start analysis')
-    parser.add_argument('--sample_combinations', type=int, default=5, help='number of combinations to be used when testing x num angles/distances')
+    parser.add_argument('--num_images', type=int, default=20, help='number of images to start analysis')
+    parser.add_argument('--sample_combinations', type=int, default=30, help='number of combinations to be used when testing x num angles/distances')
 
     parser.add_argument('--reprojection_sample_size', type=int, default=None,
                         help='number of samples to use for reprojection error. If a number is selected, a random number of the same board dataset is selected. If None is selected, the dataset of all other boards is used for reprojection error. If ')
