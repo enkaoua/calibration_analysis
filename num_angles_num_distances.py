@@ -182,7 +182,7 @@ def num_angles_num_distances_analysis(table_pth='results/hand_eye/raw_corner_dat
             distances = data_df_chess_size[f'T_z{extension}'].unique().sort
             # only use distances where there are more than 100 frames to test on
             grouped_df = data_df_chess_size.groupby(f'T_z{extension}').count() # group by distance and count how many occurences in each distance group
-            grouped_df_filtered = grouped_df[grouped_df['frame_number']>30].reset_index() # filter those groups wiht not enough frames
+            grouped_df_filtered = grouped_df[grouped_df['frame_number']>100].reset_index() # filter those groups wiht not enough frames
             distances = grouped_df_filtered[f'T_z{extension}'].values # # grab distances 
 
             simple_results = []
