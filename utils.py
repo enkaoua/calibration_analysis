@@ -87,6 +87,8 @@ def extrinsic_matrix_to_vecs(transformation_matrix):
 def sample_dataset(df, total_samples=100):
     
     # if the length of the dataframe is smaller than total_samples, return the entire dataframe and remaining samples is None
+    if total_samples is None:
+        return df, None
     if len(df) < total_samples:
         return df, None
 
@@ -143,17 +145,16 @@ def create_folders(folders):
 def reprojection_error(imgpoints_detected, imgpoints_reprojected, image=None):
     """
     calculate reprojection error given the detected and reprojected points
-    TODO: CHANGE SUM SQ DIFF TO RESIDUALS
     """
-
-    try:
-        
-        squared_diffs = np.square(imgpoints_detected - imgpoints_reprojected)
+    diff = (imgpoints_detected - imgpoints_reprojected)
+    if diff.any()>1000:
+        # to avoid overflow
+        error_np=np.inf
+    else:
+        squared_diffs = np.square(diff)
         error_np = np.sqrt(np.sum(squared_diffs) / len(imgpoints_reprojected))
         # round up to 5 decimal places
         error_np = round(error_np, 5)
-    except RuntimeWarning:
-        error_np = np.inf
 
     if image is not None:
         img_shape = image.shape

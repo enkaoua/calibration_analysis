@@ -102,7 +102,7 @@ def num_angles_num_distances_analysis(table_pth='results/hand_eye/raw_corner_dat
 
     else:
         # intrinsic calibration- using hand-eye datset as it has the T column
-        table_pth = f'results/hand_eye/filtered_data/{rec_name}'
+        table_pth = f'results/hand_eye/filtered_data/MC_{min_num_corners}_PC_{percentage_corners}'
         file_pth = 'corner_data'
         extension = ''
         distance_analysis = f'results/intrinsics/{param_we_are_testing}_distance_analysis'
@@ -348,12 +348,12 @@ def add_distance_analysis_args_to_parser(parser):
     parser.add_argument('--table_path', type=str, default='results/hand_eye/raw_corner_data/MC_None_PC_None',
                         help='path to where images uesd for calibration are stored')
     parser.add_argument('--cameras', type=list, default=['endo', 'realsense'], help='cameras used for calibration')
-    parser.add_argument('--chess_sizes', type=list, default=[20, 25, 30, 15],
+    parser.add_argument('--chess_sizes', type=list, default=[20], #, 25, 30, 15
                         help='sizes of chessboard used for calibration')
     #parser.add_argument('-a','--angles', type=list, default=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], help='angles to analyse')
     parser.add_argument('-t_param','--param_we_are_testing', type=str, default='angle', help='angle or position')
 
-    parser.add_argument('--repeats', type=int, default=20, help='number of repeats per number of images analysis')
+    parser.add_argument('--repeats', type=int, default=10, help='number of repeats per number of images analysis')
     
     parser.add_argument('--num_images', type=int, default=20, help='number of images to start analysis')
     parser.add_argument('--sample_combinations', type=int, default=30, help='number of combinations to be used when testing x num angles/distances')
@@ -382,7 +382,7 @@ def add_distance_analysis_args_to_parser(parser):
                         default='', #results/intrinsics/best_intrinsics
                         help='path to intrinsics results for he') """
 
-    parser.add_argument('-he','--hand_eye', action='store_false', help='if set to true, will store intrinsics for hand eye') 
+    parser.add_argument('-he','--hand_eye', action='store_true', help='if set to true, will store intrinsics for hand eye') 
                     
     return parser
 
@@ -438,7 +438,7 @@ if __name__=='__main__':
          R= reprojection_sample_size,
          visualise_reprojection_error=visualise_reprojection_error,
          waitTime=waitTime,
-         HAND_EYE=True,
+         HAND_EYE=bool(args.hand_eye),
          sample_combinations = sample_combinations,
          optimise=True,
          min_num_corners = min_num_corners,
