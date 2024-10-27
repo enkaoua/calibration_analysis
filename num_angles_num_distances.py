@@ -199,7 +199,7 @@ def num_angles_num_distances_analysis(table_pth='results/hand_eye/raw_corner_dat
                         overall_mean_error = np.mean(reprojection_errors)
                         # Append results
                         simple_results.append({
-                            'num_angles': num_params,
+                            f'num_{param_we_are_testing}s': num_params,
                             'num_distances': num_distances,
                             'mean_reprojection_error': overall_mean_error
                         })
@@ -341,7 +341,30 @@ def num_angles_num_distances_analysis(table_pth='results/hand_eye/raw_corner_dat
             plt.xlabel('Number of distances')
             plt.ylabel(f'Number of {param_we_are_testing}')
             plt.savefig(f'{distance_analysis_chess}/heatmap_{param_we_are_testing}_distance_chess_{chess_size}_PC_{percentage_corners}_sample_combinations_{sample_combinations}_N{n}_repeats{repeats}_camera_{camera}.png')
-                
+            
+            # produce same but 3D surface heatmap
+            plt.figure(figsize=(12, 8))
+            ax = plt.axes(projection='3d')
+            x = simple_results_df[f'num_{param_we_are_testing}s']
+            y = simple_results_df['num_distances']
+            z = simple_results_df['mean_reprojection_error']
+            # smooth the surface
+            from scipy.interpolate import griddata
+            xi, yi = np.linspace(x.min(), x.max(), 100), np.linspace(y.min(), y.max(), 100)
+            xi, yi = np.meshgrid(xi, yi)
+            zi = griddata((x, y), z, (xi, yi), method='linear')
+            # color map green to red
+            cmap = plt.get_cmap('RdYlGn_r')
+            ax.plot_surface(xi, yi, zi, cmap=cmap, edgecolor='none')
+            # add color bar to represent reprojection error
+            cbar = plt.colorbar(ax.plot_surface(xi, yi, zi, cmap=cmap, edgecolor='none'), ax=ax, shrink=0.5, aspect=5)
+            cbar.set_label('Reprojection Error')
+            ax.set_xlabel(f'Number of {param_we_are_testing}s')
+            ax.set_ylabel('Number of distances')
+            ax.set_zlabel('Mean Reprojection Error')
+            plt.title(f'Mean Reprojection Error for Number of {param_we_are_testing} and distances')
+            plt.savefig(f'{distance_analysis_chess}/3D_surface_{param_we_are_testing}_distance_chess_{chess_size}_PC_{percentage_corners}_sample_combinations_{sample_combinations}_N{n}_repeats{repeats}_camera_{camera}.png')
+
        
             
 def add_distance_analysis_args_to_parser(parser):
@@ -351,11 +374,11 @@ def add_distance_analysis_args_to_parser(parser):
     parser.add_argument('--chess_sizes', type=list, default=[20], #, 25, 30, 15
                         help='sizes of chessboard used for calibration')
     #parser.add_argument('-a','--angles', type=list, default=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], help='angles to analyse')
-    parser.add_argument('-t_param','--param_we_are_testing', type=str, default='angle', help='angle or position')
+    parser.add_argument('-t_param','--param_we_are_testing', type=str, default='position', help='angle or position')
 
-    parser.add_argument('--repeats', type=int, default=10, help='number of repeats per number of images analysis')
+    parser.add_argument('--repeats', type=int, default=20, help='number of repeats per number of images analysis')
     
-    parser.add_argument('--num_images', type=int, default=20, help='number of images to start analysis')
+    parser.add_argument('--num_images', type=int, default=50, help='number of images to start analysis')
     parser.add_argument('--sample_combinations', type=int, default=30, help='number of combinations to be used when testing x num angles/distances')
 
     parser.add_argument('--reprojection_sample_size', type=int, default=None,
