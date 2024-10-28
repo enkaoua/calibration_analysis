@@ -13,16 +13,20 @@ def find_and_save_best_intrinsics(data_pth = 'results/intrinsics/calibration_ana
     # create save pth if doesnt exist
     if not os.path.exists(save_path):
         os.makedirs(save_path)
-    best_intrinsics = None
-    best_distortion = None
-    best_error = np.inf
+
     for camera in cameras:
         for chess_size in chess_sizes:
+            best_intrinsics = None
+            best_distortion = None
+            best_error = np.inf
             # get the data
             pths_with_intrinsics_analysis = glob.glob(f'{data_pth}/*')
 
             for intrinsics_analysis_pth in pths_with_intrinsics_analysis:
-                print(f'pth:::::::. {intrinsics_analysis_pth}')
+                #print(f'pth:::::::. {intrinsics_analysis_pth}')
+                # check file exists
+                if not os.path.exists(f'{intrinsics_analysis_pth}/{chess_size}_{camera}_calibration_data.pkl'):
+                    continue
                 intrinsics, distortion, error = find_best_intrinsics(intrinsics_analysis_pth, chess_size, camera,
                                                                 save_path='')
                 if error < best_error:
