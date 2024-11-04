@@ -84,7 +84,7 @@ def extrinsic_matrix_to_vecs(transformation_matrix):
     return rvec, tvec
 
 
-def sample_dataset(df, total_samples=100):
+def sample_dataset(df, total_samples=100, groupby_cats=['position_category', 'angle_category']):
     
     # if the length of the dataframe is smaller than total_samples, return the entire dataframe and remaining samples is None
     if total_samples is None:
@@ -93,7 +93,7 @@ def sample_dataset(df, total_samples=100):
         return df, None
 
     # Group by poses and angles
-    grouped = df.groupby(['pose', 'deg'])
+    grouped = df.groupby(groupby_cats)
 
     # Calculate how many samples we should pick per group (approximately)
     num_groups = len(grouped)
@@ -263,7 +263,7 @@ def filter_and_merge_hand_eye_df(data_df_endo, data_df_realsense, min_num_corner
                                                                                                  ids_e, ids_r,
                                                                                                  return_ids=True)
         # filter also realsense pnts and endo object points
-        imgPoints_matched_rs, objPoints_matched_endo, ids_endo_2, ids_rs_2 = sort_and_filter_matched_corners(pnts_rs, pnts_3d_endo,
+        imgPoints_matched_rs, objPoints_matched_endo, ids_rs_2, ids_endo_2 = sort_and_filter_matched_corners(pnts_rs, pnts_3d_endo,
                                                                                                          ids_r, ids_e,
                                                                                                          return_ids=True)
         if len(imgPoints_matched_endo) < min_num_corners:

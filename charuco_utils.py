@@ -329,20 +329,19 @@ def hand_eye_objective(params, world2realsense, objPoints, imgPoints, intrinsics
     return reprojection_errors
 
 
-def calibrate_hand_eye_pnp_reprojection(calibration_data,reprojection_data_df, intrinsics_endo=None, distortion_endo=None, optimise = True, error_threshold = 1):
+def calibrate_hand_eye_pnp_reprojection(calibration_data,data_for_optimisation, intrinsics_endo=None, distortion_endo=None, optimise = True, error_threshold = 1, num_samples_for_optimisation=100, groupby_cats=['pose', 'deg']):
 
     # PERFORM HAND-EYE
-    T_endo_lst = calibration_data['T_endo']
-    T_realsense_lst = calibration_data['T_rs']
+    T_endo_lst = calibration_data['T_endo'].values
+    T_realsense_lst = calibration_data['T_rs'].values
     hand_eye = calibrate_hand_eye(T_endo_lst, T_realsense_lst)
     #hand_eye = registration_hand_eye(calibration_data)
     
     # OPTIMISE HAND-EYE
-    test_data , _ = sample_dataset(reprojection_data_df, total_samples=100)
-    #test_data = calibration_data
-    world2realsense = test_data['T_rs'].values
-    objPoints = test_data['objPoints_rs'].values
-    imgPoints = test_data['imgPoints_endo'].values
+    data_used_for_optimisation , _ = sample_dataset(data_for_optimisation, total_samples=num_samples_for_optimisation, groupby_cats=groupby_cats)
+    world2realsense = data_used_for_optimisation['T_rs'].values
+    objPoints = data_used_for_optimisation['objPoints_rs'].values
+    imgPoints = data_used_for_optimisation['imgPoints_endo'].values
     #endo_reprojection_images_pth = calibration_data['paths_endo'].values
     
     # convert all arrays in world2realsense to float 32
@@ -578,21 +577,15 @@ def he_analysis(data_df, reprojection_data_df, intrinsics_pth, size_chess, waitT
         
         # SELECT DATASET/IMAGES FOR CALIBRATION AND REPROJECTION
         # sample n images from the dataset (number of images we are testing)
-        calibration_data, _ = sample_dataset(data_df, total_samples=n)
+        calibration_data, _ = sample_dataset(data_df, total_samples=n, groupby_cats=['pose', 'deg'])
         # if reprojection_data_df is None, use calibration data as reprojection dataset
         if reprojection_data_df is None:
             reprojection_data_df = calibration_data
         
         # CALIBRATE
         # hand-eye calibration
-        #T_endo_lst = calibration_data['T_endo']
-        #T_realsense_lst = calibration_data['T_rs']
-        #hand_eye = calibrate_hand_eye(T_endo_lst, T_realsense_lst)
         hand_eye = calibrate_hand_eye_pnp_reprojection(calibration_data,reprojection_data_df, intrinsics_endo=intrinsics_endo, distortion_endo=distortion_endo, optimise=optimise, error_threshold=1)
-        #hand_eye = calibrate_hand_eye_pnp(calibration_data, intrinsics_endo=intrinsics_endo,intrinsics_rs=intrinsics_rs, distortion_endo=distortion_endo, distortion_rs=distortion_rs)
-        #hand_eye = calibrate_he_opencv(calibration_data)
-        #hand_eye = calibrate_hand_eye_registration(calibration_data, intrinsics_endo=intrinsics_endo, distortion_endo=distortion_endo, optimise=optimise)
-        
+
         # EVALUATE REPROJECTION ERROR
         # reprojection error
         world2realsense = reprojection_data_df['T_rs'].values
@@ -703,7 +696,7 @@ def calibrate_and_evaluate(args):
     board_data, n, R, intrinsics_initial_guess_pth, image_shape, visualise_reprojection_error, waitTime = args
 
     # sample from calibration dataset however many number of samples we're investigating
-    calibration_data, _ = sample_dataset(board_data, total_samples=n)
+    calibration_data, _ = sample_dataset(board_data, total_samples=n, groupby_cats=['pose', 'deg'])
     
     if R is None:
         reprojection_data = calibration_data
@@ -894,7 +887,7 @@ def calculate_reprojection_error(mtx, dist, objPoints, imgPoints, image_pths=Non
         else:
             error_np = reprojection_error(imgpoints_detected, imgpoints_reprojected)
         mean_errors.append(error_np)
-
+    
     mean = pd.DataFrame(mean_errors).mean()[0]
     median = pd.DataFrame(mean_errors).median()[0]
     if mean - median > 0.5:
