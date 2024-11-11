@@ -16,7 +16,7 @@ from utils import create_folders, filter_and_merge_hand_eye_df, find_best_intrin
 def generate_board_table(image_pths, board, table_data_pth, table_info_pth, 
                          #min_num_corners=1, percentage_of_corners=0.2, 
                          waiting_time=1,
-                         intrinsics=None, distortion=None, visualise_corner_detection=False):
+                         intrinsics=None, distortion=None, visualise_corner_detection=False, main_format=True):
     """
     Generate a table of the detected chessboard corners data in the world coordinate system.
     The pandas dataframe table is saved in table_data_pth and contains the following info:
@@ -60,13 +60,16 @@ def generate_board_table(image_pths, board, table_data_pth, table_info_pth,
             'num_detected_corners': num_detected_corners, 'ids':ids}
     data_df = pd.DataFrame(data=data)
     # adding columns to describe pose, chess size, degree, direction
-    data_df[['chess_size', 'pose', 'deg', 'direction']] = data_df['paths'].str.extract(
-        'acc_(\d+)_pos(\d+)_deg(\d+)_(\d+)')
+
     # also adding frame number
     data_df['frame_number'] = data_df['paths'].str.extract('(\d+).png')
-    # convert to integers
-    data_df[["pose", "chess_size", "deg", "direction"]] = data_df[["pose", "chess_size", "deg", "direction"]].apply(
-        pd.to_numeric)
+
+    if main_format:
+        data_df[['chess_size', 'pose', 'deg', 'direction']] = data_df['paths'].str.extract(
+        'acc_(\d+)_pos(\d+)_deg(\d+)_(\d+)')
+        # convert to integers
+        data_df[["pose", "chess_size", "deg", "direction"]] = data_df[["pose", "chess_size", "deg", "direction"]].apply(
+            pd.to_numeric)
     # if intrinsics path, we want to also add the board pose
     if intrinsics is not None and distortion is not None:
         data_df['T'] = T

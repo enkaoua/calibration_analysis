@@ -477,7 +477,7 @@ def record_board_live(save_path,
                       max_frames_recorded_for_calibration=np.inf, 
                       save_calibration_images = True,
                       num_images_for_calibration=10,
-                      percentage_of_corners = 0.3,
+                      percentage_of_corners = 0.5,
                       HAND_EYE = False,
                       too_far_distance = 1000
                       #grid_size_x=3,  grid_size_y=3, 
@@ -801,7 +801,7 @@ def perform_calibration(calib_frames, reproj_frames, calibration_estimates_pth, 
 
     intrinsics_initial_guess_pth = f'{calibration_estimates_pth}'
     endo_img = cv2.imread(calib_frames['paths'].values[0])
-    image_shape = endo_img.shape[:2]
+    image_shape = (endo_img.shape[1], endo_img.shape[0])
 
     # perform calibration on selected frames
     args = calibration_data_df, num_images_to_sample_for_calibration, reproj_data_df, intrinsics_initial_guess_pth, image_shape, visualise_reprojection_error, waitTime
@@ -826,9 +826,9 @@ def update_Ts(df_combined, board, intrinsics_endo, distortion_endo, intrinsics_r
         img_points_endo[i] = cv2.undistortPoints(img_points_endo[i], intrinsics_endo, distortion_endo, P=intrinsics_endo)
         img_points_rs[i] = cv2.undistortPoints(img_points_rs[i], intrinsics_rs, distortion_rs, P=intrinsics_rs)
         retval, rvec_endo, tvec_endo = cv2.aruco.estimatePoseCharucoBoard(img_points_endo[i], detected_ids_endo[i], board,
-                                                                intrinsics_endo, distortion_endo, None, None)
+                                                                intrinsics_endo, distortion_endo)
         retval, rvec_rs, tvec_rs = cv2.aruco.estimatePoseCharucoBoard(img_points_rs[i], detected_ids_rs[i], board, 
-                                                                      intrinsics_rs, distortion_rs, None, None)
+                                                                      intrinsics_rs, distortion_rs)
         # replace value of row
         df_combined.at[i, 'T_endo'] = extrinsic_vecs_to_matrix(rvec_endo, tvec_endo)
         df_combined.at[i, 'T_rs'] = extrinsic_vecs_to_matrix(rvec_rs, tvec_rs)
@@ -905,7 +905,7 @@ def main(aruco_w=7,
                         board=board, 
                         calibration_estimates_pth_endo = calibration_estimates_pth_endo, 
                         calibration_estimates_pth_rs = calibration_estimates_pth_rs, 
-                        max_frames_recorded_for_calibration=300, 
+                        max_frames_recorded_for_calibration=500, 
                         save_calibration_images = True,
                         num_images_for_calibration=num_images_for_calibration,
                         percentage_of_corners=percentage_of_corners,
@@ -1029,6 +1029,11 @@ def main(aruco_w=7,
         np.savetxt(f'{realsense_save_path}/calibration/distortion_rs.txt', distortion_rs)
         np.savetxt(f'{realsense_save_path}/calibration/err_rs.txt', [err_rs])
 
+    intrinsics_endo= np.loadtxt(f'results/intrinsics/best_intrinsics/20_endo_intrinsics.txt')
+    distortion_endo= np.loadtxt(f'results/intrinsics/best_intrinsics/20_endo_distortion.txt')
+    intrinsics_rs = np.loadtxt(f'results/intrinsics/best_intrinsics/20_realsense_intrinsics.txt')
+    distortion_rs= np.loadtxt(f'results/intrinsics/best_intrinsics/20_realsense_distortion.txt')
+
     if True:
         if HAND_EYE:
             min_angles = 10
@@ -1084,14 +1089,14 @@ def main(aruco_w=7,
             hand_eye, err_he = perform_hand_eye_calibration(frames_for_he_calibration, data_for_optimisation,remaining_frames, intrinsics_endo, distortion_endo, 
                                                             optimise=True, error_threshold=1, 
                                                             num_samples_for_optimisation=100, waitTime=waitTime, 
-                                                            visualise_reprojection_error=True)
+                                                            visualise_reprojection_error=False)
             
             print('Hand eye calibration successful')
             print('hand_eye: ', hand_eye)
             print('err_he: ', err_he)
             # save hand eye calibration as txt file in calibration folder
-            #np.savetxt(f'{calib_save_path}/calibration/hand_eye.txt', hand_eye)
-            #np.savetxt(f'{calib_save_path}/calibration/err_he.txt', [err_he])
+            np.savetxt(f'{calib_save_path}/calibration/hand_eye_calib.txt', hand_eye)
+            np.savetxt(f'{calib_save_path}/calibration/err_he_calib.txt', [err_he])
 
 
     
@@ -1272,14 +1277,14 @@ if __name__=='__main__':
          size_of_checkerboard=int(args.size_of_checkerboard),
          aruco_size=int(args.aruco_size),
          #calib_save_path=args.save_path,
-         calib_save_path='results/user_study/mac/matt/4',
-         realsense_save_path='results/user_study/mac/matt/4', 
+         calib_save_path= 'results/user_study/mac/matt/4', #'results/user_study/study2/joao/1',
+         realsense_save_path='results/user_study/mac/matt/4', # 'results/user_study/study2/joao/1', 
          endo_port = 1, 
         rs_port = 0,
         calibration_estimates_pth_endo = 'calibration_estimates/intrinsics_endo.txt', 
         calibration_estimates_pth_rs = 'calibration_estimates/intrinsics_realsense.txt', 
-        max_frames_recorded_for_calibration=300, #np.inf, 
-        too_far_distance = 300,
+        max_frames_recorded_for_calibration=250, #np.inf, 
+        too_far_distance = 3000,
         save_calibration_images = True,
 
         num_images_for_calibration=10,
@@ -1288,13 +1293,13 @@ if __name__=='__main__':
         min_positions=9, 
         min_distances=1, 
         min_angles=10, 
-        max_distance_threshold=1500,
+        max_distance_threshold=3000,
         min_distance_threshold=10, 
         min_angle_threshold=-40, 
         max_angle_threshold=40, 
         visualise_reprojection_error = False,
         waitTime=0,
-        reprojection_df_pth = 'results/user_study/mac/aure/reprojection_dataset_endo_distance', #'results/user_study/mac/aure/reprojection_dataset_endo_distance3' ,#'', # pth where the reprojection df is saved,
+        reprojection_df_pth = 'results/user_study/mac/aure/reprojection_dataset_endo_distance', #'results/user_study/study2/reprojection_datasets/1', #'results/user_study/mac/aure/reprojection_dataset_endo_distance3' ,#'', # pth where the reprojection df is saved,
         percentage_of_corners = 0.5,
         HAND_EYE = True,
         num_images_for_he_calibration=30

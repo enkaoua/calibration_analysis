@@ -66,6 +66,7 @@ def main(pose_results_pth = 'results/hand_eye/pose_analysis/MC_6.0_PC_0.2_size_1
 if __name__ == '__main__':
     hand_eye = False
 
+
     if hand_eye == True:
         calibration_pth = 'results/hand_eye'
 
