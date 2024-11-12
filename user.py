@@ -86,7 +86,8 @@ def main(data_path = 'results/user_study/mac',
                     # load intrinsics
                     intrinsics = np.loadtxt(f'{data_path}/{participant}/{run_num}/intrinsics/calibration/intrinsics_{cam}.txt')
                     distortion = np.loadtxt(f'{data_path}/{participant}/{run_num}/intrinsics/calibration/distortion_{cam}.txt')
-                intrinsics, distortion = None, None
+                else:
+                    intrinsics, distortion = None, None
                 # creates table of detected corners for all images with at least one corner detected
                 data_df, _ = generate_board_table(image_pths, board, table_data_pth, table_info_pth,
                                                                     waiting_time=waitTime,
@@ -145,10 +146,11 @@ def main(data_path = 'results/user_study/mac',
             data_rs = pd.read_pickle(f'{data_path}/{participant}/{run_num}/hand_eye/rs_data.pkl')
             min_num_corners = int( 0.5 * (aruco_h * aruco_w) )
             data_df = filter_and_merge_hand_eye_df(data_endo, data_rs, min_num_corners, main_run = True)
-            # save merged df
-            data_df.to_pickle(f'{data_path}/{participant}/{run_num}/hand_eye/merged_data.pkl')
             # change column names x_endo to x, y_endo to y, z_endo to z, rx_endo to rx, ry_endo to ry, rz_endo to rz
             data_df.rename(columns={'x_endo': 'x', 'y_endo': 'y', 'z_endo': 'z', 'rx_endo': 'rx', 'ry_endo': 'ry', 'rz_endo': 'rz'}, inplace=True)
+            # save merged df
+            data_df.to_pickle(f'{data_path}/{participant}/{run_num}/hand_eye/merged_data.pkl')
+            
             # sample dataset
             num_images_for_he_calibration = 30
             min_angles = 10
@@ -164,16 +166,19 @@ def main(data_path = 'results/user_study/mac',
 
             if run_num == reproj_name:
                 reprojection_data_df = remaining_frames
-            else:
-                reprojection_data_df = pd.read_pickle(f'{data_path}/aure/{reproj_name}/hand_eye/merged_data.pkl')
+                continue
+            optimisation_data_df = remaining_frames
+            #else:
+            #    reprojection_data_df = pd.read_pickle(f'{data_path}/aure/{reproj_name}/hand_eye/merged_data.pkl')
             intrinsics_endo = np.loadtxt(f'{data_path}/{participant}/{run_num}/intrinsics/calibration/intrinsics_endo.txt')
             distortion_endo = np.loadtxt(f'{data_path}/{participant}/{run_num}/intrinsics/calibration/distortion_endo.txt')
             # perform calibration
             hand_eye = calibrate_hand_eye_pnp_reprojection(frames_for_he_calibration,
-                                                           reprojection_data_df, 
+                                                           optimisation_data_df, 
                                                            intrinsics_endo=intrinsics_endo, 
                                                            distortion_endo=distortion_endo, 
-                                                           optimise=True, error_threshold=1)
+                                                           optimise=True, error_threshold=1,
+                                                           groupby_cats=['position_category', 'angle_category'])
             
             
             world2realsense = reprojection_data_df['T_rs'].values
@@ -189,7 +194,7 @@ def main(data_path = 'results/user_study/mac',
                                                        intrinsics_endo, distortion_endo,
                                                        waitTime=waitTime,
                                                        endo_reprojection_images_pth=endo_reprojection_images_pth)
-            reprojection_error_mean_final = pd.DataFrame(err_np).median()[0]
+            reprojection_error_mean_final = pd.DataFrame(err_np).mean()[0]
 
             print(f'{participant} {run_num} hand_eye calibration successful')
             print('reprojection_error_mean_final: ', reprojection_error_mean_final)
