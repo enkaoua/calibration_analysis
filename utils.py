@@ -216,13 +216,19 @@ def find_best_intrinsics(intrinsics_pth, size_chess, camera, save_path=''):
     return intrinsics, distortion, min_error
 
 
-def filter_and_merge_hand_eye_df(data_df_endo, data_df_realsense, min_num_corners):
+def filter_and_merge_hand_eye_df(data_df_endo, data_df_realsense, min_num_corners, main_run = False):
     # combine information of paths for filtering those that don't match between endo and rs
     # TODO remove warning
-    data_df_endo['combined_info'] = data_df_endo[['chess_size', 'pose', 'deg', 'direction', 'frame_number']].astype(
+    if main_run:
+        common_columns = ['frame_number']
+    else:
+        common_columns = ['chess_size', 'pose', 'deg', 'direction', 'frame_number']
+    data_df_endo['combined_info'] = data_df_endo[common_columns].astype(
         str).agg('_'.join, axis=1)
     data_df_realsense['combined_info'] = data_df_realsense[
-        ['chess_size', 'pose', 'deg', 'direction', 'frame_number']].astype(str).agg('_'.join, axis=1)
+        common_columns].astype(str).agg('_'.join, axis=1)
+        
+
 
     # find common images between endo and realsense
     common_keys = set(data_df_endo['combined_info']).intersection(set(data_df_realsense['combined_info']))
@@ -236,7 +242,6 @@ def filter_and_merge_hand_eye_df(data_df_endo, data_df_realsense, min_num_corner
     data_df_realsense.drop(columns=['combined_info', 'num_detected_corners'], inplace=True) #inplace used to do operation in place (instead of returning copy) and return None.
 
     # merge endo and rs into one dataframe and add suffixes (_endo or _rs) to 
-    common_columns = ['chess_size', 'pose', 'deg', 'direction', 'frame_number']
     data_df_combined = pd.merge(
         data_df_endo,
         data_df_realsense,
