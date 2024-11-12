@@ -66,8 +66,8 @@ def main(data_path = 'results/user_study/mac',
                 
                 # table_data_pth
                 results_data_pth = f'{data_path}/{participant}/{run_num}/data'
-                if not os.path.exists(results_data_pth):
-                    os.makedirs(results_data_pth)
+                if not os.path.exists('{results_data_pth}/calibration'):
+                    os.makedirs('{results_data_pth}/calibration')
                 table_data_pth = f'{data_path}/{participant}/{run_num}/data/{cam}_data.pkl'
                 table_info_pth = f'{data_path}/{participant}/{run_num}/data/{cam}_info.pkl'
                 intrinsics, distortion = None, None
@@ -114,9 +114,9 @@ def main(data_path = 'results/user_study/mac',
                 print('err: ', err)
                 print('num_corners_detected_rs: ', num_corners_detected)
                 # save intrinsics and distortion as txt file 
-                np.savetxt(f'{results_data_pth}/calibration/intrinsics_rs.txt', intrinsics)
-                np.savetxt(f'{results_data_pth}/calibration/distortion_rs.txt', distortion)
-                np.savetxt(f'{results_data_pth}/calibration/err_rs.txt', [err])
+                np.savetxt(f'{results_data_pth}/calibration/intrinsics_{cam}.txt', intrinsics)
+                np.savetxt(f'{results_data_pth}/calibration/distortion_{cam}.txt', distortion)
+                np.savetxt(f'{results_data_pth}/calibration/err_{cam}.txt', [err])
 
     
     # generate HAND-eye dataframe
