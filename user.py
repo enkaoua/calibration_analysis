@@ -8,6 +8,7 @@ import pandas as pd
 from main_calibration_analysis import generate_board_table
 import numpy as np
 
+
 def main(data_path = 'results/user_study/mac',
          participant = 'matt',
          run_num = '0',
@@ -58,14 +59,27 @@ def main(data_path = 'results/user_study/mac',
                 # find frame_number of 
                 data['frame_number'] = data_df['paths'].str.extract('(\d+).png')
                 # add "poses" column to data_df from data['poses] where the 'frame_number' is the same
-                # 1) find rows which match the frame_number between data_df and data
-                matching_frame_num = pd.merge(data_df, data, on='frame_number', how='left')
-                # 2) add the poses to the data_df
-                # 3) save the data_df
+                data_df_merged = data_df.merge(data[['frame_number', 'poses']], on='frame_number', how='left')
+                #data_df_merged.to_pickle(f'{results_data_pth}/{cam}_data.pkl')
+                data_df_merged.to_pickle(table_data_pth)
 
-                
+                # 
 
-                T =  np.array(data['poses'])
+    
+    # generate HAND-eye dataframe
+
+
+
+    # merge dataframes
+    """ for participant in ['matt', 'aure', 'mobarak', 'joao']:
+        for run_num in ['1', '2', '3', '4', '5']:
+            data_endo = pd.read_pickle(f'{data_path}/{participant}/{run_num}/data/endo_data.pkl')
+            data_rs = pd.read_pickle(f'{data_path}/{participant}/{run_num}/data/realsense_data.pkl')
+            
+            data_df = filter_and_merge_hand_eye_df(data_df_endo, data_df_realsense, min_num_corners) """
+
+
+
 
     return 
 
