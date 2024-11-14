@@ -117,7 +117,7 @@ def detect_charuco_board_pose_images(board, image_pths, intrinsics, distortion, 
             if visualise_corner_detection:
                 # draw markers
                 annotated_image = cv2.aruco.drawDetectedCornersCharuco(undistorted_image, charuco_detected_corners,
-                                                                       charuco_detected_ids)
+                                                                       charuco_detected_ids, cornerColor= (0,255,0))
                 # Draw the ChArUco board axis
                 annotated_image = cv2.drawFrameAxes(annotated_image, intrinsics, None, rvec, tvec, length=37)
                 # display annotated img
@@ -170,7 +170,9 @@ def calibrate_hand_eye(T_endo_lst, T_realsense_lst):
 
 def calculate_hand_eye_reprojection_error(hand_eye, world2realsense, objPoints, imgPoints, intrinsics_endo,
                                           distortion_endo, waitTime=1,
-                                          endo_reprojection_images_pth=[], return_residuals=False, return_projected_pnts=False):  # rs_reprojection_images_pth, board,detect_aruco=False,
+                                          endo_reprojection_images_pth=[], return_residuals=False, return_projected_pnts=False, 
+                                          rs_reprojection_images_pth=[], intrinsics_rs=None, distortion_rs=None, imgPoints_rs=None,
+                                          IDs_endo=None, IDs_rs=None):  # rs_reprojection_images_pth, board,detect_aruco=False,
 
     mean_errors_np = []
     residuals = []
@@ -194,18 +196,53 @@ def calculate_hand_eye_reprojection_error(hand_eye, world2realsense, objPoints, 
 
         # compare those 2D points to the detected ones considered as ground truth
         img_points_endo_detected = np.array(imgPoints[i]).reshape(-1, 2).astype(np.float32)
-
+        if IDs_endo is None:
+                ID_endo = None
+        else:
+            ID_endo = IDs_endo[i]
         if len(endo_reprojection_images_pth) > 0:
             endo_im = cv2.imread(endo_reprojection_images_pth[i])
             undistorted_img_endo = cv2.undistort(endo_im, intrinsics_endo, distortion_endo)
             # calculate error
+            
             error_np, annotated_image_endo_board = reprojection_error(img_points_endo_detected, proj_points_2d_endo,
-                                                                      undistorted_img_endo)
+                                                                      undistorted_img_endo, IDs=ID_endo)
+            cv2.putText(annotated_image_endo_board, f'mean error: {error_np:.2f}', (30, 100), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 255, 0), 2)
+            
+            
             # print(error)
-            cv2.imshow('charuco board', annotated_image_endo_board)
+
+            
+            if len(rs_reprojection_images_pth)>0:
+                # TODO add IDS of tags
+                proj_points_2d_rs, _ = cv2.projectPoints(cv2.convertPointsFromHomogeneous(points3D_realsense), np.zeros((1, 3)),
+                                                   np.zeros((1, 3)), intrinsics_rs, distortion_rs)
+                proj_points_2d_rs = proj_points_2d_rs.squeeze().astype(np.float32)
+                rs_im = cv2.imread(rs_reprojection_images_pth[i])
+                undistorted_img_rs = cv2.undistort(rs_im, intrinsics_rs, distortion_rs)
+                
+                img_points_rs_detected = np.array(imgPoints_rs[i]).reshape(-1, 2).astype(np.float32)
+                if IDs_rs is None:
+                    ID_rs = None
+                else:
+                    ID_rs = IDs_rs[i]
+                error_np_rs, annotated_image_endo_board_rs = reprojection_error(img_points_rs_detected, proj_points_2d_rs,
+                                                                      undistorted_img_rs,IDs=ID_rs)
+
+                # resize image of endoscope and rs to match
+                rs_im = cv2.resize(annotated_image_endo_board_rs, (endo_im.shape[1], endo_im.shape[0]))
+                # combined both images
+                combined_img = np.hstack((rs_im, undistorted_img_endo))
+                cv2.imshow('charuco board', combined_img)
+            else:
+                cv2.imshow('charuco board', annotated_image_endo_board)
+
             cv2.waitKey(waitTime)
+            # add error as text to image
+                        
+            #cv2.waitKey(waitTime)
         else:
-            error_np = reprojection_error(img_points_endo_detected, proj_points_2d_endo)
+            error_np = reprojection_error(img_points_endo_detected, proj_points_2d_endo,IDs=ID_endo)
 
         mean_errors_np.append(error_np)
         if return_residuals:
@@ -726,7 +763,7 @@ def calibrate_and_evaluate(args):
     else:
         image_paths = None
     err = calculate_reprojection_error(mtx, dist, objPoints_reprojection, imgPoints_reprojection,
-                                       image_pths=image_paths, waitTime=waitTime)
+                                       image_pths=image_paths, waitTime=waitTime, IDs=reprojection_data.ids.values)
 
     num_corners_detected = calibration_data['num_detected_corners'].sum()
     return mtx, dist, err, num_corners_detected
@@ -846,7 +883,7 @@ def perform_analysis(camera, data_df, reprojection_data_df, repeats=1000, num_im
     return results_df
 
 
-def calculate_reprojection_error(mtx, dist, objPoints, imgPoints, image_pths=None, waitTime=1):
+def calculate_reprojection_error(mtx, dist, objPoints, imgPoints, image_pths=None, waitTime=1, IDs=None):
     """
     calculate reprojection error on a set of points from images given the intrinsics and distortion coefficients
 
@@ -879,13 +916,18 @@ def calculate_reprojection_error(mtx, dist, objPoints, imgPoints, image_pths=Non
         imgpoints_reprojected, _ = cv2.projectPoints(objPoints[i], rvec, tvec, mtx, dist)
         imgpoints_detected = imgPoints[i]
         # calculate error
+        if IDs is None:
+                ID = None
+        else:
+            ID = IDs[i]
         if image_pths is not None:
             image = cv2.imread(image_pths[i])
-            error_np, annotated_image = reprojection_error(imgpoints_detected, imgpoints_reprojected, image=image)
+            
+            error_np, annotated_image = reprojection_error(imgpoints_detected, imgpoints_reprojected, image=image, IDs=ID)
             cv2.imshow('charuco board', annotated_image)
             cv2.waitKey(waitTime)
         else:
-            error_np = reprojection_error(imgpoints_detected, imgpoints_reprojected)
+            error_np = reprojection_error(imgpoints_detected, imgpoints_reprojected, IDs=ID)
         mean_errors.append(error_np)
     
     mean = pd.DataFrame(mean_errors).mean()[0]

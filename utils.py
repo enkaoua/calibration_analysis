@@ -142,7 +142,7 @@ def create_folders(folders):
             os.makedirs(f'{folder}')
 
 
-def reprojection_error(imgpoints_detected, imgpoints_reprojected, image=None):
+def reprojection_error(imgpoints_detected, imgpoints_reprojected, image=None, IDs=None):
     """
     calculate reprojection error given the detected and reprojected points
     """
@@ -158,12 +158,14 @@ def reprojection_error(imgpoints_detected, imgpoints_reprojected, image=None):
 
     if image is not None:
         img_shape = image.shape
-        for corner_reprojected, corner_detected in zip(imgpoints_reprojected, imgpoints_detected):
+        for idx, corner_detected in enumerate(imgpoints_detected):
             # change dtypw of corner to int
             corner_detected = corner_detected.astype(int)
-            corner_reprojected = corner_reprojected.astype(int)
+            corner_reprojected = imgpoints_reprojected[idx].astype(int)
+
             centre_detected = corner_detected.ravel()
             centre_reprojected = corner_reprojected.ravel()
+
             # check if points are within image
             if centre_detected[0] < 0 or centre_detected[0] > img_shape[1] or centre_detected[1] < 0 or centre_detected[
                 1] > img_shape[0]:
@@ -173,6 +175,12 @@ def reprojection_error(imgpoints_detected, imgpoints_reprojected, image=None):
                 continue
             cv2.circle(image, (int(centre_detected[0]), int(centre_detected[1])), 3, (0, 0, 255), -1)
             cv2.circle(image, (int(centre_reprojected[0]), int(centre_reprojected[1])), 3, (0, 255, 0), -1)
+            # TODO ADD IDs to each tag
+            if IDs is not None:
+                # add ID of detected tag
+                ID=IDs[idx]
+                cv2.putText(image, f'{ID}', (int(centre_detected[0]), int(centre_detected[1])), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
+                cv2.putText(image, f'{ID}', (int(centre_reprojected[0]), int(centre_reprojected[1])), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
 
         return error_np, image
     

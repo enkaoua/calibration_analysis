@@ -393,6 +393,10 @@ def bin_and_sample(df, num_images_for_calibration=30, grid_size_x=3, grid_size_y
     
     # Define angle bins for rx, ry, and rz
     angle_bins = [min_angle_threshold, -30, 0, 30, max_angle_threshold]  # Corresponds to ranges: (-inf, -30], (-30, 0], (0, 30]
+    
+    # remove all angles rx less than -30 and larger than 30
+    df = df[(df['rx'] >= min_angle_threshold) & (df['rx'] <= max_angle_threshold) & (df['ry'] >= min_angle_threshold) & (df['ry'] <= max_angle_threshold) & (df['rz'] >= min_angle_threshold) & (df['rz'] <= max_angle_threshold)]
+    
     """ # create bins for angles (-30,-30,-30 is bin 1, 0,-30,-30 is bin 2, 0,0,-30 3 etc until 30,30,30)
     
     # Define function to determine angle category based on rx, ry, rz
@@ -416,7 +420,9 @@ def bin_and_sample(df, num_images_for_calibration=30, grid_size_x=3, grid_size_y
     # combine to create angle category
     angle_category = 9 * angle_cats_z + 3 * angle_cats_y + angle_cats_x
     df['angle_category'] = angle_category
-    
+    if len(df)<4:
+        print('not enough data')
+        return None, None
     """ # Sample evenly distributed frames across all groups
 
     # Group by bins
@@ -801,7 +807,7 @@ def perform_calibration(calib_frames, reproj_frames, calibration_estimates_pth, 
 
     intrinsics_initial_guess_pth = f'{calibration_estimates_pth}'
     endo_img = cv2.imread(calib_frames['paths'].values[0])
-    image_shape = (endo_img.shape[1], endo_img.shape[0])
+    image_shape = (endo_img.shape[0], endo_img.shape[1])
 
     # perform calibration on selected frames
     args = calibration_data_df, num_images_to_sample_for_calibration, reproj_data_df, intrinsics_initial_guess_pth, image_shape, visualise_reprojection_error, waitTime
@@ -864,8 +870,8 @@ def main(aruco_w=7,
                       min_angles=10, 
                       max_distance_threshold=1000,
                       min_distance_threshold=10, 
-                      min_angle_threshold=-40, 
-                      max_angle_threshold=40, 
+                      min_angle_threshold=-30, 
+                      max_angle_threshold=30, 
                       visualise_reprojection_error = False,
                       waitTime=0,
                       reprojection_df_pth = 'results/user_study/mac/aure/reprojection_dataset',#'', # pth where the reprojection df is saved,
@@ -905,7 +911,7 @@ def main(aruco_w=7,
                         board=board, 
                         calibration_estimates_pth_endo = calibration_estimates_pth_endo, 
                         calibration_estimates_pth_rs = calibration_estimates_pth_rs, 
-                        max_frames_recorded_for_calibration=500, 
+                        max_frames_recorded_for_calibration=2000, 
                         save_calibration_images = True,
                         num_images_for_calibration=num_images_for_calibration,
                         percentage_of_corners=percentage_of_corners,
@@ -1058,6 +1064,7 @@ def main(aruco_w=7,
                                                                 max_distance_threshold=max_distance_threshold,min_distance_threshold=min_distance_threshold, 
                                                                 min_angle_threshold=min_angle_threshold, max_angle_threshold=max_angle_threshold)
             
+
             # update all values of T_endo and T_rs using new intrinsics and dist
             data_for_optimisation = remaining_frames
 
@@ -1260,9 +1267,9 @@ if __name__=='__main__':
     # adding all necessary args for cl app
     """ parser.add_argument('--save_path', type=str, default='results/user_study/mac/aure/rs2', 
                         help='path to where images uesd for calibration are stored') """
-    parser.add_argument('--aruco_w', type=int, default=13,
+    parser.add_argument('--aruco_w', type=int, default=9,
                         help='')
-    parser.add_argument('--aruco_h', type=int, default=9,
+    parser.add_argument('--aruco_h', type=int, default=5,
                     help='')
     parser.add_argument('--size_of_checkerboard', type=int, default=20,
                     help='')
@@ -1277,13 +1284,13 @@ if __name__=='__main__':
          size_of_checkerboard=int(args.size_of_checkerboard),
          aruco_size=int(args.aruco_size),
          #calib_save_path=args.save_path,
-         calib_save_path= 'results/user_study/mac/matt/4', #'results/user_study/study2/joao/1',
-         realsense_save_path='results/user_study/mac/matt/4', # 'results/user_study/study2/joao/1', 
-         endo_port = 1, 
-        rs_port = 0,
+         calib_save_path= 'results/user_study/mac2/mobarak/5', #'results/user_study/study2/joao/1',
+         realsense_save_path='results/user_study/mac2/mobarak/5', # 'results/user_study/study2/joao/1', 
+         endo_port = 0, 
+        rs_port = 1,
         calibration_estimates_pth_endo = 'calibration_estimates/intrinsics_endo.txt', 
         calibration_estimates_pth_rs = 'calibration_estimates/intrinsics_realsense.txt', 
-        max_frames_recorded_for_calibration=250, #np.inf, 
+        max_frames_recorded_for_calibration=150, #np.inf, 
         too_far_distance = 3000,
         save_calibration_images = True,
 
@@ -1295,11 +1302,11 @@ if __name__=='__main__':
         min_angles=10, 
         max_distance_threshold=3000,
         min_distance_threshold=10, 
-        min_angle_threshold=-40, 
-        max_angle_threshold=40, 
+        min_angle_threshold=-30, 
+        max_angle_threshold=30, 
         visualise_reprojection_error = False,
         waitTime=0,
-        reprojection_df_pth = 'results/user_study/mac/aure/reprojection_dataset_endo_distance', #'results/user_study/study2/reprojection_datasets/1', #'results/user_study/mac/aure/reprojection_dataset_endo_distance3' ,#'', # pth where the reprojection df is saved,
+        reprojection_df_pth = 'results/user_study/mac2/aure/reprojection_dataset_endo_distance_final', #'results/user_study/study2/reprojection_datasets/1', #'results/user_study/mac/aure/reprojection_dataset_endo_distance3' ,#'', # pth where the reprojection df is saved,
         percentage_of_corners = 0.5,
         HAND_EYE = True,
         num_images_for_he_calibration=30

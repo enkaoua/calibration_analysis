@@ -9,8 +9,9 @@ import pandas as pd
 
 def main(): 
     # load reprojection errors
-    data_pth = '/Users/aure/Documents/CARES/code/charuco_calibration_analysis/results/user_study/study2'
-    
+    #data_pth = '/Users/aure/Documents/CARES/code/charuco_calibration_analysis/results/user_study/study2'
+    data_pth = '/Users/aure/Documents/CARES/code/charuco_calibration_analysis/results/user_study/mac/results'
+
     # initialise dict
     reprojection_errors_endo_dict = {
         'matt': [],
@@ -31,42 +32,67 @@ def main():
         'aure': [],
     }
 
+    reprojection_errors_he_dict_own = {
+        'matt': [],
+        'joao': [],
+        'mobarak': [],
+        'aure': [],
+    }
+
     for name in reprojection_errors_endo_dict.keys():
-        reprojection_errors_endo = glob.glob(f'{data_pth}/{name}/[0-6]/calibration/err_endo.txt')
-        reprojection_errors_rs = glob.glob(f'{data_pth}/{name}/[0-6]/calibration/err_rs.txt')
-        reprojection_errors_he = glob.glob(f'{data_pth}/{name}/[0-6]/calibration/err_he_calib.txt')
+        reprojection_errors_endo = glob.glob(f'{data_pth}/{name}/[0-6]/intrinsics/calibration/err_endo.txt')
+        reprojection_errors_rs = glob.glob(f'{data_pth}/{name}/[0-6]/intrinsics/calibration/err_rs.txt')
+        reprojection_errors_he = glob.glob(f'{data_pth}/{name}/[0-6]/hand_eye/calibration/reprojection_error_mean_final.txt')
+        reprojection_errors_he_own = glob.glob(f'{data_pth}/{name}/[0-6]/hand_eye/calibration/reprojection_error_mean_final_own.txt')
 
         # load errors
         reprojection_errors_endo = [np.loadtxt(f) for f in reprojection_errors_endo]
         reprojection_errors_rs = [np.loadtxt(f) for f in reprojection_errors_rs]
         reprojection_errors_he = [np.loadtxt(f) for f in reprojection_errors_he]
 
+        reprojection_errors_he_own = [np.loadtxt(f) for f in reprojection_errors_he_own]
+
+
         # append to dict
         reprojection_errors_endo_dict[name] = reprojection_errors_endo
         reprojection_errors_rs_dict[name] = reprojection_errors_rs
         reprojection_errors_he_dict[name] = reprojection_errors_he
+        reprojection_errors_he_dict_own[name] = reprojection_errors_he_own
+
         
     # convert to df where rows are the different participants and columns are the different images
     
     reprojection_errors_endo_df = pd.DataFrame(reprojection_errors_endo_dict)
     reprojection_errors_rs_df = pd.DataFrame(reprojection_errors_rs_dict)
     reprojection_errors_he_df = pd.DataFrame(reprojection_errors_he_dict)
+    reprojection_errors_he_df_own = pd.DataFrame(reprojection_errors_he_dict_own)
 
     # convert rows to columns snd columns to rows
     reprojection_errors_endo_df = reprojection_errors_endo_df
     reprojection_errors_rs_df = reprojection_errors_rs_df
     reprojection_errors_he_df = reprojection_errors_he_df
+    reprojection_errors_he_df_own = reprojection_errors_he_df_own
 
     # plot boxplots with participants as each box
-    fig, ax = plt.subplots(1, 3, figsize=(15, 5))
+    fig, ax = plt.subplots(1, 4, figsize=(15, 5))
     ax[0].boxplot(reprojection_errors_endo_df.values)
     ax[0].set_ylabel('reprojection error (pixels)')
+    ax[0].set_ylim(0, 1.5)
 
     ax[0].set_title('endoscope intrinsic calibration')
     ax[1].boxplot(reprojection_errors_rs_df.values)
     ax[1].set_title('realsense intrinsic calibration')
+    ax[1].set_ylim(0, 1.5)
+    
+    
     ax[2].boxplot(reprojection_errors_he_df.values)
-    ax[2].set_title('eye-eye')
+    ax[2].set_title('extrinsic calibration')
+    ax[2].set_ylim(0, 70)
+    ax[3].set_title('extrinsic calibration (reproj on same dataset)')
+    ax[3].boxplot(reprojection_errors_he_df_own.values)
+    # scale y axis same as endo
+    ax[3].set_ylim(0, 70)
+
     # x label for all plots is participant (cmmon x lavel)
 
     plt.show()
