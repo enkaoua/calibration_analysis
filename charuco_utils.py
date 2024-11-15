@@ -154,18 +154,29 @@ def calibrate_hand_eye(T_endo_lst, T_realsense_lst):
     hand_eye_r_lst = []
     hand_eye_t_lst = []
     hand_eye_lst = []
+    i=0
     for tag2endo, tag2realsense in zip(T_endo_lst, T_realsense_lst):
         # calculate hand-eye        
         hand_eye = tag2endo @ np.linalg.inv(tag2realsense)
+
+        print(f'------------ hand_eye individual {i}')
+        #print(f'tag2endo: \n {np.round(tag2endo)}')
+        #print(f'tag2realsense: \n {np.round(tag2realsense)}')
+        # print hand eye rounded to 1 decimal place
+        print(f'hand_eye rounded: \n {np.round(hand_eye)}')
+        print(f'-------------------------')
+        i+=1
 
         r, t = extrinsic_matrix_to_vecs(hand_eye)
         hand_eye_r_lst.append(r)
         hand_eye_t_lst.append(t)
         hand_eye_lst.append(hand_eye)
 
-    mean_he = calculate_transform_average(hand_eye_r_lst, hand_eye_t_lst)
-
-    return mean_he
+    mean_he, mask = calculate_transform_average(hand_eye_r_lst, hand_eye_t_lst)
+    # filter out outliers
+    T_endo_lst_filtered = T_endo_lst[mask]
+    T_realsense_lst_filtered = T_realsense_lst[mask]
+    return mean_he, T_endo_lst_filtered, T_realsense_lst_filtered
 
 
 def calculate_hand_eye_reprojection_error(hand_eye, world2realsense, objPoints, imgPoints, intrinsics_endo,
@@ -228,6 +239,10 @@ def calculate_hand_eye_reprojection_error(hand_eye, world2realsense, objPoints, 
                     ID_rs = IDs_rs[i]
                 error_np_rs, annotated_image_endo_board_rs = reprojection_error(img_points_rs_detected, proj_points_2d_rs,
                                                                       undistorted_img_rs,IDs=ID_rs)
+                
+                # add pose axis to image
+                rvec, tvec = extrinsic_matrix_to_vecs(world2realsense[i])
+                annotated_image_endo_board_rs = cv2.drawFrameAxes(annotated_image_endo_board_rs, intrinsics_rs, None, rvec, tvec, length=37)
 
                 # resize image of endoscope and rs to match
                 rs_im = cv2.resize(annotated_image_endo_board_rs, (endo_im.shape[1], endo_im.shape[0]))
@@ -371,8 +386,10 @@ def calibrate_hand_eye_pnp_reprojection(calibration_data,data_for_optimisation, 
     # PERFORM HAND-EYE
     T_endo_lst = calibration_data['T_endo'].values
     T_realsense_lst = calibration_data['T_rs'].values
-    hand_eye = calibrate_hand_eye(T_endo_lst, T_realsense_lst)
+    hand_eye, T_endo_lst, T_realsense_lst = calibrate_hand_eye(T_endo_lst, T_realsense_lst)
     #hand_eye = registration_hand_eye(calibration_data)
+
+    
     
     # OPTIMISE HAND-EYE
     data_used_for_optimisation , _ = sample_dataset(data_for_optimisation, total_samples=num_samples_for_optimisation, groupby_cats=groupby_cats)

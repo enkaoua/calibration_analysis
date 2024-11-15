@@ -182,9 +182,73 @@ def reprojection_error(imgpoints_detected, imgpoints_reprojected, image=None, ID
                 cv2.putText(image, f'{ID}', (int(centre_detected[0]), int(centre_detected[1])), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
                 cv2.putText(image, f'{ID}', (int(centre_reprojected[0]), int(centre_reprojected[1])), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
 
+        
         return error_np, image
     
     return error_np
+
+
+def remove_outliers(r_lst, t_lst, threshold=10):
+    """
+    removes outliers from the list of rotation and translation vectors
+    Args:
+        r_lst (list): list of rotation vectors
+        t_lst (list): list of translation vectors
+        threshold (int): threshold for outlier detection
+    Returns:
+        r_lst (list): list of rotation vectors
+        t_lst (list): list of translation vectors
+    """
+    # convert to dataframe
+    """ df_t = pd.DataFrame(np.array(t_lst).squeeze(), columns=['x', 'y', 'z'])
+    df_r = pd.DataFrame(np.array(r_lst).squeeze(), columns=['rx', 'ry', 'rz'])
+
+    # Calculate mean and standard deviation for each column in both DataFrames
+    mean_t, std_t = df_t.mean(), df_t.std()
+    mean_r, std_r = df_r.mean(), df_r.std()
+    # Calculate z-scores for each column in both DataFrames
+    z_scores_t = (df_t - mean_t) / std_t
+    z_scores_r = (df_r - mean_r) / std_r
+    # Identify outliers based on z-scores
+    outliers_t = (z_scores_t > threshold).any(axis=1)
+    outliers_r = (z_scores_r > threshold).any(axis=1)
+    # Combine masks to find rows that meet criteria in both lists
+    outliers_combined = outliers_t | outliers_r
+    # Remove outliers from the lists
+    r_lst = [r for i, r in enumerate(r_lst) if not outliers_combined[i]]
+    t_lst = [t for i, t in enumerate(t_lst) if not outliers_combined[i]] """
+
+    # Convert lists to DataFrames
+    df_t = pd.DataFrame(np.array(t_lst).squeeze(), columns=['x', 'y', 'z'])
+    df_r = pd.DataFrame(np.array(r_lst).squeeze(), columns=['rx', 'ry', 'rz'])
+    from scipy.spatial.distance import cdist
+
+    # Calculate pairwise distances within each DataFrame
+    distances_t = cdist(df_t, df_t, metric='euclidean')
+    distances_r = cdist(df_r, df_r, metric='euclidean')
+
+    # Calculate the median of distances for each row
+    median_distances_t = np.median(distances_t, axis=1)
+    median_distances_r = np.median(distances_r, axis=1)
+
+    # Determine threshold as 75th percentile for outlier detection
+    threshold_t = np.percentile(median_distances_t, 75)
+    threshold_r = np.percentile(median_distances_r, 75)
+
+    # Identify non-outliers within each list
+    mask_t = median_distances_t <= threshold_t
+    mask_r = median_distances_r <= threshold_r
+
+    # Combine masks to keep rows that meet criteria in both lists
+    mask_combined = mask_t & mask_r
+
+    # Filter rows and convert back to lists
+    t_lst = df_t[mask_combined].values.tolist()
+    r_lst = df_r[mask_combined].values.tolist()
+
+    #r_lst = [r for i, r in enumerate(r_lst) if not filtered_r_lst[i]]
+    #t_lst = [t for i, t in enumerate(t_lst) if not filtered_t_lst[i]]
+    return r_lst, t_lst, mask_combined
 
 
 def calculate_transform_average(r_lst, t_lst):
@@ -196,6 +260,27 @@ def calculate_transform_average(r_lst, t_lst):
     Returns:
         mean_he (np.array): 4x4 transformation matrix
     """
+    """ # remove any outlier that is too different from the rest
+    # convert to dataframe
+    df_t = pd.DataFrame(np.array(t_lst).squeeze(), columns=['x', 'y', 'z'])
+    df_r = pd.DataFrame(np.array(r_lst).squeeze(), columns=['rx', 'ry', 'rz'])
+
+    # Calculate mean and standard deviation for each column in both DataFrames
+    mean_t, std_t = df_t.mean(), df_t.std()
+    mean_r, std_r = df_r.mean(), df_r.std()
+
+    # Identify rows within one standard deviation for both DataFrames
+    mask_t = ((df_t >= mean_t - std_t) & (df_t <= mean_t + std_t)).all(axis=1)
+    mask_r = ((df_r >= mean_r - std_r) & (df_r <= mean_r + std_r)).all(axis=1)
+
+    # Combine masks to find rows that meet criteria in both lists
+    mask_combined = mask_t & mask_r
+
+    # Filter rows and convert back to lists
+    filtered_t_lst = df_t[mask_combined].values.tolist()
+    filtered_r_lst = df_r[mask_combined].values.tolist() """
+    r_lst, t_lst, mask = remove_outliers(r_lst, t_lst, threshold=10)
+
     # average hand eye
     scipy_rot = Rotation.from_rotvec(np.array(r_lst).reshape((-1, 3)), degrees=False)
     mean_rot = scipy_rot.mean().as_rotvec()
@@ -203,7 +288,7 @@ def calculate_transform_average(r_lst, t_lst):
     mean_t = np.mean(np.asarray(t_lst).reshape(-1, 3), axis=0)
 
     mean_he = extrinsic_vecs_to_matrix(mean_rot, mean_t)
-    return mean_he
+    return mean_he, mask
 
 
 def find_best_intrinsics(intrinsics_pth, size_chess, camera, save_path=''):

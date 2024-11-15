@@ -80,14 +80,14 @@ def main(data_path = 'results/user_study/mac',
     #table_data_pth = f'results/user_study/mac/aure/reprojection_dataset_endo_distance'
     #table_info_pth = f'results/user_study/mac/aure/reprojection_dataset_endo_distance_info'
     OVERRIDE = False
-    reproj_name = 'reprojection_dataset_endo_distance3'
+    reproj_name = 'reprojection_dataset_endo_distance'
     for calib_type in ['intrinsics', 'hand_eye']: # 'intrinsics', 
         print('-------------------', calib_type, '-------------------')
         for cam in ['endo','rs']:
             print('-------------------', cam, '-------------------')
-            for participant in ['aure', 'matt', 'mobarak','joao']: #, 'matt', 'mobarak','joao'
+            for participant in ['aure']: #, 'matt', 'mobarak','joao'
                 print('-------------------', participant, '-------------------')
-                for run_num in [reproj_name,'1', '2', '3', '4', '5']: #'1', '2', '3', '4', '5'
+                for run_num in [reproj_name, '2', '4']: #'1', '2', '3', '4', '5'
                     print(f'----------- {calib_type} {cam} {run_num} {participant} ---------')
                     # check if reprojection has been done once and skip if so
                     if run_num == reproj_name and participant != 'aure':
@@ -194,8 +194,8 @@ def main(data_path = 'results/user_study/mac',
 
         
     # merge dataframes
-    for participant in ['mobarak', 'aure', 'matt','joao']: #, 'matt',  'mobarak', 'joao'
-        for run_num in [reproj_name,'1','2', '3', '4', '5' ]: #'1','2', '3', '4', '5'     '2', '4'
+    for participant in ['aure']: #, 'matt',  'mobarak', 'joao'
+        for run_num in [reproj_name, '2', '4']: #'1','2', '3', '4', '5'     '2', '4'
             print(f'########## {participant} {run_num} hand_eye calibration ##########')
 
             if run_num == reproj_name and participant != 'aure':
@@ -211,9 +211,9 @@ def main(data_path = 'results/user_study/mac',
             
             # sample dataset
             num_images_for_he_calibration = 30
-            min_angles = 1
+            min_angles = 15
             min_distances = 1
-            min_positions = 1
+            min_positions = 4
             #df_combined = calib_frames_to_dataframe(df_combined, extension = '_endo')
             frames_for_he_calibration, remaining_frames  = bin_and_sample(data_df, num_images_for_calibration=num_images_for_he_calibration, 
                                                                 grid_size_x=grid_size_x, grid_size_y=grid_size_y, 
@@ -247,10 +247,20 @@ def main(data_path = 'results/user_study/mac',
                                                            groupby_cats=['position_category', 'angle_category'])
             
             
+            print(hand_eye)
 
+            hand_eye = np.array([[ 9.78290385e-01, -2.07223797e-01, -2.49426457e-03,  6.46121036e+00,],
+                                [ 2.07111314e-01,  9.77195610e-01,  4.68363468e-02, -8.40532174e+01,],
+                                [-7.26822123e-03, -4.63361381e-02,  9.98899462e-01, -1.99164454e+02,],
+                                [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00,  1.00000000e+00]])
             
+            hand_eye = np.array([[ 9.78019717e-01, -2.07620826e-01, -1.92620139e-02,  1.08717737e+01],
+                                [ 2.08305372e-01 , 9.76986461e-01,  4.58947453e-02, -8.41367776e+01],
+                                [ 9.29002185e-03, -4.88983468e-02,  9.98760555e-01, -2.03617382e+02],
+                                [ 0.00000000e+00,  0.00000000e+00,  0.00000000e+00 , 1.00000000e+00]])
+
             reprojection_data_df_own = frames_for_he_calibration
-            visualise_reprojection_error = False
+            visualise_reprojection_error = True
 
             reprojection_error_mean_final_own = eval_reproj_err(reprojection_data_df_own,
                                                                 hand_eye,
@@ -260,7 +270,6 @@ def main(data_path = 'results/user_study/mac',
                                                                 distortion_rs,  
                                                                 visualise_reprojection_error=visualise_reprojection_error, waitTime=waitTime)
             
-            print(hand_eye)
             print(f'reprojection_error_mean_final_own: {reprojection_error_mean_final_own}')
 
             #print(f'{participant} {run_num} own calibration successful')
