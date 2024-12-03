@@ -1,9 +1,22 @@
-results/*
 results/*/best_intrinsics
 results/*/best_intrinsics
-results/*/raw_corner_data/old*
-results/*/split_data/old*
+results/*/split_data
 results/*/calibration_analysis/
-results/*/pose_analysis/*
+results/*/pose_analysis
+results/*/position_distance_analysis
+results/*/before_final_stuff
+results/*/angle_distance_analysis
+results/*/position_distance_analysis
+results/*/filtered_data
+results/*/analysis_3D
+results/*/best_intrinsics_old
+results/*/before final stuff
+results/cluster
+
+*.pdf
 
 __pycache__/
+
+old_code/
+
+.DS_Store

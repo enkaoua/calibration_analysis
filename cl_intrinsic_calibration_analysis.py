@@ -14,7 +14,7 @@ def add_analysis_args_to_parser(parser):
                         help='percentage of corners to use for calibration')
     parser.add_argument('--visualise_corner_detection', type=bool, default=False,
                         help='if set to true, will visualise corner detection')
-    parser.add_argument('--repeats', type=int, default=2, help='number of repeats per number of images analysis')
+    parser.add_argument('--repeats', type=int, default=1000, help='number of repeats per number of images analysis')
     parser.add_argument('--num_images_start', type=int, default=5, help='number of images to start analysis')
     parser.add_argument('--num_images_end', type=int, default=60, help='number of images to end analysis')
     parser.add_argument('--num_images_step', type=int, default=5, help='step size for number of images analysis')

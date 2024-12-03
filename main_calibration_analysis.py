@@ -460,7 +460,7 @@ def main_intrinsics(
         threshold = 30
         plot_rs = False
     else:
-        threshold = 2
+        threshold = 1.4
     plot_calibration_analysis_results(hand_eye=HAND_EYE, 
                                       calibration_pth = results_pth, 
                                       min_num_corners=min_num_corners, 

@@ -378,7 +378,7 @@ def add_distance_analysis_args_to_parser(parser):
 
     parser.add_argument('--repeats', type=int, default=20, help='number of repeats per number of images analysis')
     
-    parser.add_argument('--num_images', type=int, default=30, help='number of images to start analysis')
+    parser.add_argument('--num_images', type=int, default=10, help='number of images to start analysis')
     parser.add_argument('--sample_combinations', type=int, default=30, help='number of combinations to be used when testing x num angles/distances')
 
     parser.add_argument('--reprojection_sample_size', type=int, default=None,

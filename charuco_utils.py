@@ -159,12 +159,12 @@ def calibrate_hand_eye(T_endo_lst, T_realsense_lst):
         # calculate hand-eye        
         hand_eye = tag2endo @ np.linalg.inv(tag2realsense)
 
-        print(f'------------ hand_eye individual {i}')
+        #print(f'------------ hand_eye individual {i}')
         #print(f'tag2endo: \n {np.round(tag2endo)}')
         #print(f'tag2realsense: \n {np.round(tag2realsense)}')
         # print hand eye rounded to 1 decimal place
-        print(f'hand_eye rounded: \n {np.round(hand_eye)}')
-        print(f'-------------------------')
+        #print(f'hand_eye rounded: \n {np.round(hand_eye)}')
+        #print(f'-------------------------')
         i+=1
 
         r, t = extrinsic_matrix_to_vecs(hand_eye)
@@ -389,8 +389,6 @@ def calibrate_hand_eye_pnp_reprojection(calibration_data,data_for_optimisation, 
     hand_eye, T_endo_lst, T_realsense_lst = calibrate_hand_eye(T_endo_lst, T_realsense_lst)
     #hand_eye = registration_hand_eye(calibration_data)
 
-    
-    
     # OPTIMISE HAND-EYE
     data_used_for_optimisation , _ = sample_dataset(data_for_optimisation, total_samples=num_samples_for_optimisation, groupby_cats=groupby_cats)
     world2realsense = data_used_for_optimisation['T_rs'].values
@@ -955,6 +953,11 @@ def calculate_reprojection_error(mtx, dist, objPoints, imgPoints, image_pths=Non
         reprojection_error_mean_final = mean
 
     return reprojection_error_mean_final
+
+
+
+
+
 
 
 def detect_corners_charuco_cube_images(board, image_pths,  return_corners=True, waiting_time=0,

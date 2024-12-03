@@ -321,8 +321,6 @@ def filter_and_merge_hand_eye_df(data_df_endo, data_df_realsense, min_num_corner
     data_df_realsense['combined_info'] = data_df_realsense[
         common_columns].astype(str).agg('_'.join, axis=1)
         
-
-
     # find common images between endo and realsense
     common_keys = set(data_df_endo['combined_info']).intersection(set(data_df_realsense['combined_info']))
     # take out file names that don't match and reset index to ensure they're matching
